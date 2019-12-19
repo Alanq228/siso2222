@@ -1,0 +1,47 @@
+/* Style the viewport overlay */
+.modal {
+	display: 	none;
+	position:   fixed;
+	z-index:    1000;
+	top:        0;
+	left:       0;
+	min-height:     100% !important;
+	min-width:      100%;
+	text-align:center;
+	background-color: rgba( 0,0,173, .8 );
+}
+
+/* Style the text overlay */
+.modal_text {
+	position: fixed;
+	z-index:    2000;
+	top: 45% !important; 
+	min-width:      100%;
+    align:center;
+	background-color: #fff;
+	padding:10px;
+	font-size:14pt;
+	background: rgba( 255,255,255, 1 );
+}
+
+/* This hides the 'Close' button of the JQuery dialog overlay */
+.no-close .ui-dialog-titlebar-close {
+	  display: none;
+}
+
+/* When the body has the loading class, we turn the scrollbar off with overflow:hidden */
+body.loading {
+	overflow: hidden;
+}
+
+/* Anytime the body has the loading class, our modal element will be visible */
+body.loading .modal {
+	display: block;
+}
+
+#loading_img {
+	width:48px;
+	height:48px;
+	background-image: url('/images/loader_blue_white.gif');
+	text-align:center;
+}

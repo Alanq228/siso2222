@@ -1,0 +1,199 @@
+* html #page_tabs, * html #page_tabs_small {
+	display: inline;
+	/* to fix the 1px border undernear the tabs */
+	margin-bottom: -1px;
+}
+#page_tab_holder, #page_tab_holder_small {
+	/* keep the tabs from going over the top of the rounded corners */
+	margin:10px 10px 0px 10px;
+	/* IE6 Hides the overflow from the 100% width on the ul tag. Otherwise the page streches too far and breaks layout */
+	overflow:hidden;
+}
+#page_tabs, #page_tabs_small {
+	clear: both;
+	text-decoration: none;
+}
+#page_tabs ul, #page_tabs_small ul {
+	display: table;
+	padding: 0;
+	margin: 0 auto;
+	list-style-type: none;
+	white-space: nowrap;
+	/* width of 100% seems to be needed to make IE7 hold elements and keep firefox from collapsing as the tabs are toggled. ZDH */
+	width: 100%;
+}
+#page_tabs ul li, #page_tabs_small ul li {
+	display: table-cell;
+	float: left;
+	cursor: pointer;
+	margin: 0 1px;
+	margin: 0px 4px 0px 0px;
+	vertical-align: bottom;
+}
+* html #page_tabs ul li, * html #page_tabs_small ul li {
+	float: left;
+}
+#page_tabs ul li a {
+	width: auto;
+	display: block;
+	padding: 4px 10px;
+	color: #000;
+	font-weight: bold;
+	text-decoration: none;
+}
+#page_tabs_small ul li a {
+	width: auto;
+	display: block;
+	padding: 2px 5px;
+	color: #000;
+	font-weight: bold;
+	text-decoration: none;
+}
+#page_tabs ul li span {
+	width: auto;
+	display: block;
+	padding: 4px 10px;
+	color: #000;
+	font-weight: bold;
+	text-decoration: none;
+}
+#page_tabs_small ul li span {
+	width: auto;
+	display: block;
+	padding: 1px 5px;
+	color: #000;
+	font-weight: bold;
+	text-decoration: none;
+	/* Used px font size to fix problem with 2 px space at bottom in IE6. Fonts in pt seemed to render differently */
+	font-size:12px;
+}
+#page_tabs ul li a.active {
+	width: auto;
+	display: block;
+	padding: 6px 12px;
+	color: #000;
+	font-weight: bold;
+	text-decoration: none;
+	font-size:16px;
+	margin-top: 0px;
+}
+#page_tabs_small ul li a.active {
+	width: auto;
+	display: block;
+	padding: 3px 6px;
+	color: #000;
+	font-weight: bold;
+	text-decoration: none;
+	font-size:13px;
+	margin-top: 0px;
+}
+#page_tabs ul li span.active {
+	width: auto;
+	display: block;
+	padding: 6px 12px;
+	color: #000;
+	font-weight: bold;
+	text-decoration: none;
+	font-size:16px;
+	margin-top: 0px;
+}
+#page_tabs_small ul li span.active {
+	width: auto;
+	display: block;
+	padding: 3px 6px;
+	color: #000;
+	font-weight: bold;
+	text-decoration: none;
+	/* Used px font size to fix problem with 2 px space at bottom in IE6. Fonts in pt seemed to render differently */
+	font-size: 13px;
+	margin-top: 0px;
+}
+* html #page_tabs ul li a, * html #page_tabs_small ul li a {
+	float: left;
+}
+#page_tabs ul li a:hover, #page_tabs_small ul li a:hover {
+	color: #06C;
+}
+* html #page_tabs ul li, * html #page_tabs_small ul li {
+	width: 1px;
+}
+
+/* Left side of the inactive tabs:
+  This makes up most of the tab, and not only includes the left side, but also the body which includes the text.  It should lie underneath the right border.
+*/
+#page_tabs .page_tabs_i_l, #page_tabs_small .page_tabs_small_i_l {
+	background-image: url("/images/page_tabs/tabs.png");
+	background-repeat: no-repeat;
+	background-position: 0 -40px; /* Done for CSS sprites */
+	margin-top: 8px; /*This is to make the inactive tabs lower than the active one*/
+	height: 26px;
+	float:left;
+}
+
+#page_tabs_small .page_tabs_small_i_l {
+	height: 20px;
+	/*margin-top: 4px;*/
+}
+
+#page_tabs_small .page_tabs_small_i_l span {
+	position: relative; /* This is to ensure that the z-index is paid attention to */
+	z-index:1; /*This needs to have a higheer z-index than page_tabs_small_i_r or else teh text will show up beneath the right border*/
+}
+
+/* Right side of the inactive tabs:
+  This  should just cover up the right-most end of the tab to close it off smoothly with a right border and rounded top-right corner.
+*/
+#page_tabs .page_tabs_i_r, #page_tabs_small .page_tabs_small_i_r {
+	background-image: url("/images/page_tabs/tabs.png");
+	background-repeat: no-repeat;
+	background-position: -222px -40px; /* Done for CSS sprites */
+	margin-left: -9px; /* should have the same absolute value as the width */
+	margin-top: 8px; /*This is to make the inactive tabs lower than the active one*/
+	height: 26px;
+	float:left;
+	width:9px; /* Done for CSS sprites */
+}
+
+#page_tabs_small .page_tabs_small_i_r {
+	/*margin-top: 14px; /*This is to make the inactive tabs lower than the active one*/
+	height: 20px;
+}
+
+/* Left side of the active tabs:
+  This makes up most of the tab, and not only includes the left side, but also thebody which includes the text.  It should lie underneath the right border.
+*/
+#page_tabs .page_tabs_a_l, #page_tabs_small .page_tabs_small_a_l {
+	background-image: url("/images/page_tabs/tabs.png");
+	background-repeat: no-repeat;
+	background-position: 0px 0px; /* Done for CSS sprites */
+	height: 34px;
+	float:left;
+}
+
+#page_tabs_small .page_tabs_small_a_l {
+	height: 24px;
+	margin-top: 4px;
+}
+
+#page_tabs_small .page_tabs_small_a_l span {
+	position: relative; /* This is to ensure that the z-index is paid attention to */
+	z-index:1; /*This needs to have a higheer z-index than page_tabs_small_a_r or else teh text will show up beneath the right border*/
+}
+
+/* Right side of the active tabs:
+  This  should just cover up the right-most end of the tab to close it off smoothly with a right border and rounded top-right corner.
+*/
+#page_tabs .page_tabs_a_r, #page_tabs_small .page_tabs_small_a_r {
+	background-image: url("/images/page_tabs/tabs.png");
+	background-repeat: no-repeat;
+	background-position: -222px 0px; /* Done for CSS sprites */
+	margin-left: -9px; /* should have the same absolute value as the width */
+	height: 34px;
+	float:left;
+	width:9px; /* Done for CSS sprites */
+}
+
+#page_tabs_small .page_tabs_small_a_r {
+	height: 24px;
+	margin-top: 4px;
+}

@@ -1,0 +1,3953 @@
+function toggle_more(node, type, obj)
+{
+	var sub_node = $('#sub_' + node);
+	if (sub_node.is(":hidden"))
+	{
+		if (sub_node[0].innerHTML=='')
+		{
+			fetch_sub_genres(node,type);
+		}
+		sub_node.show();
+	}
+	else
+	{
+		sub_node.hide();
+	}
+	var button = obj;
+	var up_arr = " " + unescape("%u2191") + " ";
+	var down_arr = " " + unescape("%u2193") + " ";
+	button.value = (button.value==" &darr; " || button.value==(up_arr)) ? down_arr : up_arr;
+}
+
+function get_scroll_top()
+{
+	var scroll_top = 0;
+	if (navigator.appName=="Netscape")
+	{
+		scroll_top = window.pageYOffset;
+	}
+	else if ( document.documentElement )
+	{
+		scroll_top = document.documentElement.scrollTop;
+	}
+	else if ( document.body )
+	{
+		scroll_top = document.body.scrollTop;
+	}
+	return scroll_top;
+}
+
+var last_scroll_position = 0;
+function save_scroll_position()
+{
+	var scroll_position = get_scroll_top();
+
+	// only update if scroll has changed. This takes care of problem with
+	// updating with multiple windows open
+	if (scroll_position != last_scroll_position)
+	{
+		// Put variable declarations inside if to cut down on unnesesary JS processing
+		var save_count = 2;
+		var page_id = window.location;
+
+		if (get_cookie('p1') != page_id)
+		{
+			for (var i=save_count-1; i>=1; i--)
+			{
+				set_cookie('p'+(i+1), get_cookie('p'+i), 1, '/', 'paperbackswap.com');
+				set_cookie('ps'+(i+1), get_cookie('ps'+i), 1, '/', 'paperbackswap.com');
+			}
+
+			set_cookie('p1', page_id, 1, '/', 'paperbackswap.com');
+		}
+
+		set_cookie('ps1', scroll_position, 1, '/', 'paperbackswap.com');
+		last_scroll_position = scroll_position;
+	}
+
+	setTimeout(save_scroll_position, 250);
+}
+
+function restore_scroll_position()
+{
+	var save_count = 2;
+	var w = window.location;
+	var page_id = w.toString();
+
+	for (var i=1; i<=save_count; i++)
+	{
+		/*
+		We do not scroll to a location if the page includes a hash so that page anchors will work
+		We do scroll if a hash of t= exists because it is a special case used to track tabs
+		*/
+		if ((get_cookie('p'+i) == page_id) && (page_id.indexOf('#') == -1 || page_id.indexOf('#t=') != -1))
+		{
+			scrollTo(0, get_cookie('ps'+i));
+			break;
+		}
+	}
+
+	save_scroll_position();
+}
+
+addEvent(window, "load", restore_scroll_position);
+
+function url_encode(plaintext)
+{
+	if (plaintext == '' || typeof(plaintext) == 'undefined')
+	{
+		return '';
+	}
+	
+	// The Javascript escape and unescape functions do not correspond
+	// with what browsers actually do...
+	var SAFECHARS = "0123456789" +					// Numeric
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ" +	// Alphabetic
+	"abcdefghijklmnopqrstuvwxyz" +
+	"-_.!~*'()";					// RFC2396 Mark characters
+	var HEX = "0123456789ABCDEF";
+
+	// var plaintext = document.URLForm.F1.value;
+	var encoded = "";
+	for (var i = 0; i < plaintext.length; i++ ) {
+		var ch = plaintext.charAt(i);
+		if (ch == " ") {
+			encoded += "+";				// x-www-urlencoded, rather than %20
+		} else if (SAFECHARS.indexOf(ch) != -1) {
+			encoded += ch;
+		} else {
+			var charCode = ch.charCodeAt(0);
+			if (charCode > 255) {
+				encoded += "+";
+			} else {
+				encoded += "%";
+				encoded += HEX.charAt((charCode >> 4) & 0xF);
+				encoded += HEX.charAt(charCode & 0xF);
+			}
+		}
+	} // for
+
+	// document.URLForm.F2.value = encoded;
+	return encoded;
+}
+
+function url_decode(encoded)
+{
+	// Replace + with ' '
+	// Replace %xx with equivalent character
+	// Put [ERROR] in output if %xx is invalid.
+	var HEXCHARS = "0123456789ABCDEFabcdef";
+	// var encoded = document.URLForm.F2.value;
+	var plaintext = "";
+	var i = 0;
+	while (i < encoded.length) {
+		var ch = encoded.charAt(i);
+		if (ch == "+") {
+			plaintext += " ";
+			i++;
+		} else if (ch == "%") {
+			if (i < (encoded.length-2) && 
+					HEXCHARS.indexOf(encoded.charAt(i+1)) != -1 && 
+					HEXCHARS.indexOf(encoded.charAt(i+2)) != -1 )
+			{
+				i += 3;
+			}
+			else
+			{
+				plaintext += "%[ERROR]";
+				i++;
+			}
+		} else {
+			plaintext += ch;
+			i++;
+		}
+	} // while
+
+		// document.URLForm.F1.value = plaintext;
+		return plaintext;
+}
+
+function breakout_of_frame()
+{
+	if (top.location != location)
+	{
+		top.location.href = document.location.href;
+	}
+}
+
+function in_array(the_needle, the_haystack)
+{
+	var the_hay = the_haystack.toString();
+	if (the_hay === '')
+	{
+		return false;
+	}
+	var the_pattern = new RegExp(the_needle, 'g');
+	var matched = the_pattern.test(the_haystack);
+	return matched;
+}
+
+function recommend_book(isbn){
+	var url = "/scripts/recommend_to.php";
+	var params = "isbn="+isbn;
+	$.post(url, params, function(data) {
+		$.colorbox({html : $("html_return", data).text()});
+	});
+}
+
+function is_isbn(isbn)
+{
+	var status = false;
+	isbn = trim(isbn.replace(/[^Xx0-9]/g, ""));
+
+	if (isbn.length==10)
+	{
+		var p1 = 10*parseInt(isbn.substring(0,1),10);
+		var p2 = 9*parseInt(isbn.substring(1,2),10);
+		var p3 = 8*parseInt(isbn.substring(2,3),10);
+		var p4 = 7*parseInt(isbn.substring(3,4),10);
+		var p5 = 6*parseInt(isbn.substring(4,5),10);
+		var p6 = 5*parseInt(isbn.substring(5,6),10);
+		var p7 = 4*parseInt(isbn.substring(6,7),10);
+		var p8 = 3*parseInt(isbn.substring(7,8),10);
+		var p9 = 2*parseInt(isbn.substring(8,9),10);
+		var p10 = isbn.substring(9,10);
+
+		if (p10=='X' | p10=='x')
+		{
+			p10 = 10;
+		}
+		else
+		{
+			p10 = parseInt(p10,10);
+		}
+		var total = (p1+p2+p3+p4+p5+p6+p7+p8+p9+p10)%11;
+		if (total===0)
+		{
+			return true;
+		}
+	}
+	else
+	{
+		isbn = trim(isbn.replace(/[^0-9]/g, ""));
+
+		// Added check to make sure it starts with 97 so that a general EAN
+		// would not validate. Should begin with 978, 979 or maybe 977
+		if (isbn.length==13 && isbn.substr(0,2)=='97')
+		{
+			var s1 = 1 * parseInt(isbn.substring(0,1),10);
+			var s2 = 3 * parseInt(isbn.substring(1,2),10);
+			var s3 = 1 * parseInt(isbn.substring(2,3),10);
+			var s4 = 3 * parseInt(isbn.substring(3,4),10);
+			var s5 = 1 * parseInt(isbn.substring(4,5),10);
+			var s6 = 3 * parseInt(isbn.substring(5,6),10);
+			var s7 = 1 * parseInt(isbn.substring(6,7),10);
+			var s8 = 3 * parseInt(isbn.substring(7,8),10);
+			var s9 = 1 * parseInt(isbn.substring(8,9),10);
+			var s10 = 3 * parseInt(isbn.substring(9,10),10);
+			var s11 = 1 * parseInt(isbn.substring(10,11),10);
+			var s12 = 3 * parseInt(isbn.substring(11,12),10);
+			var s13 = 1 * parseInt(isbn.substring(12,13),10);
+
+			var total2 = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12;
+			var remainder = 10 - (total2 % 10);
+
+			if (remainder==10)
+			{
+				remainder = 0;
+			}
+
+			if (remainder==s13)
+			{
+				return true;
+			}
+		}
+	}
+
+	return status;
+}
+
+function standardize_isbn(isbn)
+{
+	isbn = trim(isbn.replace(/[^Xx0-9]/g, ""));
+
+	if (isbn.length==10 && is_isbn(isbn)===true)
+	{
+		var p1 = 10*parseInt(isbn.substring(0,1),10);
+		var p2 = 9*parseInt(isbn.substring(1,2),10);
+		var p3 = 8*parseInt(isbn.substring(2,3),10);
+		var p4 = 7*parseInt(isbn.substring(3,4),10);
+		var p5 = 6*parseInt(isbn.substring(4,5),10);
+		var p6 = 5*parseInt(isbn.substring(5,6),10);
+		var p7 = 4*parseInt(isbn.substring(6,7),10);
+		var p8 = 3*parseInt(isbn.substring(7,8),10);
+		var p9 = 2*parseInt(isbn.substring(8,9),10);
+
+		var total = (9*1) + (7*3) + (8*1) + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
+		var remainder = 10 - (total % 10);
+
+		if (remainder==10)
+		{
+			remainder = 0;
+		}
+
+		var new_isbn = '978' + isbn.substring(0,9) + remainder;
+
+		return new_isbn;
+	}
+
+	isbn = trim(isbn.replace(/[^0-9]/g, ""));
+
+	if (isbn.length==13 && is_isbn(isbn)===true)
+	{
+		return isbn;
+	}
+	else if (parseInt(isbn,10)>0 && parseInt(isbn,10)<=10000000)
+	{
+		return isbn;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+function blacklisted_isbn(isbn) 
+{
+	var url = "/scripts/allowed_isbn.php";
+	var params = "val="+isbn;
+	var xmlhttp = new XMLHttpRequest();
+	xmlhttp.open("GET",url+'?'+params,false);
+	xmlhttp.send();
+	var xmlDoc = xmlhttp.responseXML;
+	var valid = xmlDoc.getElementsByTagName("valid")[0].childNodes[0].nodeValue;
+	return valid != 'yes';
+}
+
+function clean_check_isbn(form_field)
+{
+	form_field.value = form_field.value.replace(/[^xX0-9]/g, "");
+	if (form_field.value.length==10 || form_field.value.length==13)
+	{
+		if (is_isbn(form_field.value)===true)
+		{
+			if (blacklisted_isbn(form_field.value))
+			{
+				form_field.className = 'invalid_field';
+			}
+			else
+			{
+				form_field.className = 'valid_field';
+			}
+		} 
+		else if (form_field.value.length==13)
+		{
+			form_field.className = 'invalid_field';
+		}
+		else
+		{
+			form_field.className = '';
+		}
+	}
+	else
+	{
+		form_field.className = '';
+	}
+}
+
+function clean_isbn(form_field)
+{
+	form_field.value = form_field.value.replace(/[^Xx0-9]/g, "");
+}
+
+function disable_form(form)
+{
+	for (var i=0; i<form.length; i++)
+	{
+		var e = form.elements[i];
+		if (e.type.toLowerCase() == "submit" || e.type.toLowerCase() == "reset")
+		{
+			e.disabled = true;
+			var input_length = e.value.length;
+			e.value="Loading";
+			// pad periods to approx. match the length of the previous string
+			for (var j=7; j<=input_length; j++)
+			{
+				e.value+=".";
+			}
+		}
+	}
+	return true;
+}
+
+
+function toggle_child_genres(obj, default_id, auto_select)
+{
+	var child_id = obj.id + '_child';
+	var pass_vars = [];
+	pass_vars.child_id = child_id;
+	pass_vars.default_id = default_id;
+
+	if (parseInt(obj.value,10)>0)
+	{
+		var url = "/scripts/get_child_genre_dropdown.php";
+		var params = { 'gid' : obj.value, 'id' : obj.id, 'auto' : auto_select };
+		$.post(url, params, function(data) {
+			$('#' + pass_vars.child_id + '_select').html($("html_return", data).text());
+			$('#' + pass_vars.child_id + '_holder').show();
+			$('#' + pass_vars.child_id).val(pass_vars.default_id);
+		});
+	}
+	else
+	{
+		$('#' + child_id + '_holder').hide();
+		$('#' + child_id + '_select').html('');
+	}
+}
+
+function select_chosen_genre(id)
+{
+	var g = '';
+	var g2 = '';
+	var page = eval('genre_url_'+id);
+	if(id == 'genre_grp_1')
+	{
+		g = document.getElementById(id).value;
+	}
+	else if(id == 'genre_grp_1_child')
+	{
+		g = document.getElementById('genre_grp_1').value;
+		g2 = document.getElementById(id).value;
+	}
+
+	if (parseInt(g,10)>0)
+	{
+		if (page.indexOf('?')=='-1')
+		{
+			page = page + '?';
+		}
+		self.location.href = page + '&g=' + g+'&g2='+g2;
+	}
+	else
+	{
+		self.location.href = page;
+	}
+}
+
+function setup_header_search()
+{
+	var search_box = document.getElementById('header_bar_search_field');
+
+	if (search_box.value==='Title, Author, ISBN or Keyword...')
+	{
+		search_box.value = '';
+	}
+
+	search_box.style.color = '#000';
+}
+
+function setup_qr_name()
+{
+	var name_box = document.getElementById('name');
+
+	if (name_box.value==='Your Full Name: (e.g. Jane Smith)')
+	{
+		name_box.value = '';
+	}
+
+	name_box.style.color = '#000';
+}
+
+function setup_email_input()
+{
+	var search_box = document.getElementById('f_email');
+
+	if (search_box.value==='Add friends\' email addresses')
+	{
+		search_box.value = '';
+	}
+
+	search_box.style.color = '#000';
+}
+/*
+ * BEGIN -- SCHOOL BOOK SALES FUNCTIONS
+ */
+function submit_header_search()
+{
+	var search_box = document.getElementById('header_bar_search_field');
+
+	if (search_box.value==='Title, Author, ISBN or Keyword...' || trim(search_box.value)==='')
+	{
+		search_box.value = '';
+		return false;
+	}
+
+	return true;
+}
+
+function restore_search_box(id)
+{
+	var search_box = document.getElementById(id);
+
+	if (search_box.value==='')
+	{
+		search_box.style.color = '#CCC';
+		search_box.value = 'Title, Author, ISBN or Keyword...';
+	}
+}
+
+function restore_qr_name(id)
+{
+	var name_box = document.getElementById(id);
+
+	if (name_box.value==='')
+	{
+		name_box.style.color = '#CCC';
+		name_box.value = 'Your Full Name: (e.g. Jane Smith)';
+	}
+}
+
+function restore_email_box(id)
+{
+	var search_box = document.getElementById(id);
+
+	if (search_box.value==='')
+	{
+		search_box.style.color = '#969696';
+		search_box.value = 'Add friends\' email addresses';
+	}
+}
+
+/*
+ * END -- SCHOOL BOOK SALES FUNCTIONS
+ */
+
+function viewport_width()
+{
+	var width = 0;
+
+	if (navigator.appName=="Netscape")
+	{
+		//Non IE
+		width = window.innerWidth;
+	}
+	else if ( document.documentElement &&( document.documentElement.clientWidth || document.documentElement.clientHeight ))
+	{
+		//IE 6+ in 'standards compliant mode'
+		width = document.documentElement.clientWidth;
+	}
+	else if ( document.body && ( document.body.clientWidth || document.body.clientHeight ) )
+	{
+		//IE 4 compatible
+		width = document.body.clientWidth;
+	}
+
+	return width;
+}
+
+function show_relevant_faq_blurp()
+{
+	var width = viewport_width();
+
+	if (parseInt(width,10)>=976)
+	{
+		if (document.getElementById('faq_position'))
+		{
+			var floater = document.getElementById('need_help_blurp');
+
+			floater.style.right = '-100px';
+			floater.style.top = '42px';
+			floater.style.display = '';
+		}
+	}
+}
+
+function show_google_adsense()
+{
+	var width = viewport_width();
+
+	if (parseInt(width,10)>=976)
+	{
+		if (document.getElementById('page_google_adsense'))
+		{
+			var adsense = document.getElementById('page_google_adsense');
+			adsense.style.right = '-130px';
+			adsense.style.top = '210px';
+			adsense.style.display = '';
+
+			document.body.style.marginLeft = '-110px';
+		}
+	}
+	else
+	{
+		set_cookie('ga', 1, 1, '/', 'paperbackswap.com');
+	}
+}
+
+// string attr
+function attribute_distance_sum(r,attr)
+{
+	var distance=0;
+	// while(r && r.id!='page_container')
+	while(r)
+	{
+		distance+=r[attr];
+		r=r.offsetParent;
+	}
+
+	return distance;
+}
+
+function calculateOffsetLeft(r)
+{
+	return attribute_distance_sum(r,"offsetLeft");
+}
+
+function calculateOffsetTop(r)
+{
+	return attribute_distance_sum(r,"offsetTop");
+}
+
+function open_live_help()
+{
+	window.open('/help/live/index.php', 'PaperBackSwap Live Help', 'width=550,height=400,menubar=no,toolbar=no,scrollbars=auto,status=no');
+}
+
+function add_read(isbn)
+{
+	alert("Simply rate the book to add it to your BIR List.");
+}
+
+function add_to_tbr_pile(isbn,btn)
+{
+	var url = "/scripts/add_to_tbr_pile.php";
+	var params = "isbn="+isbn;
+	ajax_call(params, url, 'post');
+
+	alert("The book has been added to your TBR Pile.");
+	if (btn!=='')
+	{
+		document.getElementById(btn).style.display = 'none';
+	}
+}
+
+function helpful_review(review_id, answer)
+{
+	var pass_data = [];
+	pass_data[0] = review_id;
+	pass_data[1] = answer;
+
+	var url = "/scripts/helpful_review.php";
+	var params = "review_id="+review_id+"&answer="+answer;
+	ajax_call(params, url, 'post', 'helpful_review_callback', '', '', pass_data);
+}
+
+function helpful_review_callback(req, pass_data)
+{
+	var review_id = pass_data[0];
+	var answer = pass_data[1];
+
+	if (answer=='yes')
+	{
+		document.getElementById('thumbs_up_'+review_id).src = '/images/thumbs_up_saved.png';
+		document.getElementById('thumbs_down_'+review_id).src = '/images/thumbs_down.png';
+		document.getElementById('thumbs_clear_'+review_id).style.display = '';
+	}
+	else if (answer=='no')
+	{
+		document.getElementById('thumbs_up_'+review_id).src = '/images/thumbs_up.png';
+		document.getElementById('thumbs_down_'+review_id).src = '/images/thumbs_down_saved.png';
+		document.getElementById('thumbs_clear_'+review_id).style.display = '';
+	}
+	else
+	{
+		document.getElementById('thumbs_up_'+review_id).src = '/images/thumbs_up.png';
+		document.getElementById('thumbs_down_'+review_id).src = '/images/thumbs_down.png';
+		document.getElementById('thumbs_clear_'+review_id).style.display = 'none';
+	}
+}
+
+
+
+function save_item_rating(item_id, rating, unique)
+{
+	var url = "/scripts/save_item_rating.php";
+	var params = "rating=" + rating + "&item_id=" + item_id;
+	ajax_call(params, url, 'post');
+	document.getElementById('current_rating_'+item_id+'_'+unique).className = 'current_rating my_rating';
+	document.getElementById('current_rating_'+item_id+'_'+unique).style.width = (rating*10) + '%';
+	document.getElementById('cancel_rating_'+item_id+'_'+unique).style.display = '';
+}
+
+function cancel_member_item_rating(item_id, unique)
+{
+	save_item_rating(item_id, 0, unique);
+	document.getElementById('current_rating_'+item_id+'_'+unique).style.width = 0 + '%';
+	document.getElementById('cancel_rating_'+item_id+'_'+unique).style.display = 'none';
+}
+
+function add_to_list(isbn,type)
+{
+	var url = '';
+
+	if (type == 'w' || type == "ww")
+	{
+		var rurl = document.location;
+		url = "/scripts/add_to_wish_list.php";
+	}
+	else if (type=='r')
+	{
+		url = "/scripts/add_to_reminder_list.php";
+	}
+
+	var params = "isbn=" + isbn;
+
+	if(rurl != '')
+	{
+		params += "&rurl="+rurl;
+	}
+
+	if(type == "ww")
+	{
+		params += "&block_redirect=1";
+	}
+
+	if (type=='w' || type=="ww")
+	{
+		ajax_call(params, url, 'post', 'wish_list_callback');
+	}
+	else
+	{
+		ajax_call(params, url, 'post');
+		alert("The book has been added to your Reminder List.");
+	}
+}
+
+function wish_list_callback(req)
+{
+	var response = req.responseXML.documentElement;
+	var error_type = response.getElementsByTagName("error").item(0).firstChild.data;
+
+	if (response.getElementsByTagName('redirect').length)
+	{
+		optimize_wish(response.getElementsByTagName('isbn')[0].firstChild.data, 1);
+	}
+	else
+	{
+		// msg tags do not exist if being redirected above
+		var msg = response.getElementsByTagName("msg").item(0).firstChild.data;
+
+		if(error_type != "overlimit")
+		{
+			alert(msg);
+		}
+		else //if(error_type == "overlimit")
+		{
+			$.colorbox({html : msg});
+		}
+	}
+}
+
+function optimize_wish(isbn, new_wish)
+{
+	if(!new_wish)
+	{
+		new_wish = 0;
+	}
+	self.location.href="/members/my_lists/wish_list_info.php?isbn="+isbn+"&new_wish="+new_wish+"&_rurl="+get_rurl();
+}
+
+
+
+// Tracks if the page has finished loading
+function set_page_loaded()
+{
+	page_loaded = true;
+}
+
+addEvent(window, "load", set_page_loaded);
+
+
+// This variable is set to "small_" when it needs to show small tabs
+var tab_size = '';
+/**
+ * This function is called on page that have tabs that load with all data and
+ * the page is not refreshed when changing The content of each tab is hidden and
+ * the selected tab is shown
+ */
+function toggle_page_tabs(tab)
+{
+	/*
+	We keep returning false until we are able to validate that all tabs have finished loading.
+	Keeps users from switching tabs before one is finished and seeing empty tabs.
+	The timeout makes it switch to the tab as soon as they finish loading
+	*/
+	for (var i=0; i<tabs.length; i++)
+	{
+		if (!document.getElementById(tabs[i]))
+		{
+			setTimeout(toggle_page_tabs(tab), 300);
+			return false;
+		}
+	}
+
+	var tab_i = '';
+	for (i=0; i<tabs.length; i++)
+	{
+		tab_i = tabs[i];
+		document.getElementById(tab_i).style.display = 'none';
+		document.getElementById('l_'+tab_i).className = 'page_tabs_'+tab_size+'i_l';
+		document.getElementById('r_'+tab_i).className = 'page_tabs_'+tab_size+'i_r';
+		document.getElementById('s_'+tab_i).className = '';
+	}
+
+	document.getElementById(tab).style.display = '';
+	document.getElementById('l_'+tab).className = 'page_tabs_'+tab_size+'a_l';
+	document.getElementById('r_'+tab).className = 'page_tabs_'+tab_size+'a_r';
+	document.getElementById('s_'+tab).className = 'active';
+
+	// This sets the hash so that the browsers back button can be used to go
+	// back to the previous tab
+	self.location.hash = 't='+tab;
+	return true;
+}
+
+/**
+This function runs continuously and is started it is called at the bottom of a page that uses toggle_page_tabs
+It will keep running to changes tabs if a back or foward button is pressed
+Also select the correct tab if a page is refreshed with a hash
+*/
+function check_hash_change()
+{
+	var hash = self.location.hash;
+	// name of the tab selected
+	var hash_tab = hash.substr(3);
+
+	/*
+	 * We want to make sure the tab exists before trying to switch to it. Incase
+	 * they are on their account tab and one of their tabs no longer has any
+	 * requests
+	 */
+	if (hash.substr(0,3) == '#t=' && hash_tab!=current_tab && document.getElementById(hash_tab))
+	{
+		toggle_page_tabs(hash_tab);
+		current_tab = hash_tab;
+	}
+	// This checks to see if they used their back button trying to go back to the original tab
+	else if (hash==='' && current_tab != original_tab)
+	{
+		toggle_page_tabs(original_tab);
+		current_tab = original_tab;
+	}
+	// Keeps this function running in an infinite loop
+	setTimeout(check_hash_change, 100);
+}
+
+function toggle_page_faqs()
+{
+	if ($('#faq_tab_down').is(':hidden'))
+	{
+		if ($('#need_help_blurp'))
+		{
+			$('#need_help_blurp').hide();
+		}
+
+		if ($('#qm1'))
+		{
+			$('#qm1').hide();
+		}
+
+		$('#faq_tab_up').hide(30, function () {
+			$('#faq_tab_down').slideDown(300);
+		});
+	}
+	else
+	{
+		$('#faq_tab_down').slideUp(300, function () {
+			$('#faq_tab_up').show(30);
+        });
+
+		if ($('#qm1'))
+		{
+			$('#qm1').slideDown('slow');
+		}
+	}
+}
+
+function lookup_relevant_faq(help_id)
+{
+	var url = "/scripts/relevant_faq_lookup.php";
+	var params = { "help_id" : help_id };
+	$.post(url, params, function(data) {
+    	$.colorbox({html : $("html_return", data).text(), maxWidth:"950px"});
+   	});
+}
+
+function gather_relevant_faqs()
+{
+	if ($('#faq_tab_middle').html() === '')
+	{
+		var url = "/scripts/relevant_faqs_gather.php";
+		var params = 'path_name=' + document.location.pathname;
+		ajax_call(params, url, 'post', 'fill_faq_tab');
+	}
+}
+
+function fill_faq_tab(req)
+{
+	var total_results;
+
+	if (document.getElementById('qm1'))
+	{
+		document.getElementById('qm1').style.display = 'none';
+	}
+
+	var response  = req.responseXML.documentElement;
+	total_results = parseInt(response.getElementsByTagName('total_results')[0].firstChild.data,10);
+
+	if (total_results>0)
+	{
+		var html = response.getElementsByTagName('html_return')[0].firstChild.data;
+		document.getElementById('faq_tab_middle').innerHTML = html;
+	}
+	else
+	{
+		document.getElementById('faq_tab_middle').innerHTML = '';
+	}
+}
+
+/**Function to manipulate CSS classes in javascript
+Source: http://www.onlinetools.org/articles/unobtrusivejavascript/cssjsseparation.html
+*/
+function jscss(a,o,c1,c2)
+{
+	switch (a){
+	case 'swap':
+		o.className=!jscss('check',o,c1)?o.className.replace(c2,c1):o.className.replace(c1,c2);
+		break;
+	case 'add':
+		if (!jscss('check',o,c1)){o.className+=o.className?' '+c1:c1;}
+		break;
+	case 'remove':
+		var rep=o.className.match(' '+c1)?' '+c1:c1;
+		o.className=o.className.replace(rep,'');
+		break;
+	case 'check':
+		return new RegExp('(\\s|^)'+c1+'(\\s|$)').test(o.className);
+	}
+}
+
+var id_gen_counter = {"nbs_gen" : 0};
+/**
+ * Generates a unique ID with the supplied prefix (if any) and applies it to the
+ * specified element.
+ *
+ * @param element
+ *            string | Object the element to have the generated ID applied to
+ *            it. Can be an element ID or an object reference.
+ * @param prefix
+ *            string the prefix for the ID to be generated. If none supplied,
+ *            defaults to "nbs_gen"
+ * @return string the ID generated -- Cannot overwrite an existing element ID.
+ */
+function generate_id(element, prefix)
+{
+	prefix = prefix ? prefix : "nbs_gen";
+
+	if (typeof(id_gen_counter[prefix]) == 'undefined')
+	{
+		id_gen_counter[prefix] = 0;
+	}
+
+	if (typeof(element) != "object")
+	{
+		if (document.getElementById(element))
+		{
+			element = document.getElementById(element);
+		}
+		else
+		{
+			return;
+		}
+	}
+	do { id_gen_counter[prefix]++; }
+	while (document.getElementById(prefix+"_"+id_gen_counter[prefix]));
+	if (element && !element.id)
+	{
+		element.id = prefix+"_"+id_gen_counter[prefix];
+	}
+	return element.id;
+}
+
+var tag_sup_tt = 'Delete your tag.';
+
+function setup_tagger(id, type_id, reference_id)
+{
+	var url = "/scripts/setup_tagger.php";
+	var params = "type_id="+type_id+'&id='+id+'&reference_id='+reference_id;
+	ajax_call(params, url, 'post', 'setup_tagger_callback', '', '', id);
+
+	var tb = document.getElementById('tag_box_'+reference_id);
+
+	if (tb)
+	{
+		tb.style.display="";
+	}
+}
+
+function setup_member_tagger(id, type_id, reference_id)
+{
+	var url = "/scripts/setup_member_tagger.php";
+	var params = "type_id="+type_id+'&id='+id+'&reference_id='+reference_id;
+	ajax_call(params, url, 'post', 'setup_tagger_callback', '', '', id);
+
+	var tb = document.getElementById('tag_box_'+reference_id);
+	if (tb)
+	{
+		tb.style.display="";
+	}
+}
+
+/**
+An inline tagger, or one that's meant to exist on the basic page as opposed to in a pop-up panel.  Geared towards tagging books right now.
+@param Object | String container the HTML element that will contain the tagger.  Can be an object reference or an element ID as a string.  If no element exists with this id,
+the functionw will create one.
+@param long isbn the isbn of the book being tagged
+@param boolean show_member_tags Whether or not the tagger should show tags already applied to this book by the member
+@param boolean show_popular_tags Whether or not the tagger shuold show tags fequently applied to this book by the PBS community
+*/
+function setup_inline_tagger(container, isbn, show_member_tags, show_popular_tags)
+{
+	if (typeof(container) != 'object')
+	{
+		var tmp = container;
+		container = document.getElementById(container);
+		if (!container)
+		{
+			document.write("<div id='"+tmp+"'></div>");
+			container = document.getElementById(tmp);
+		}
+	}
+	else if (container.id === "")
+	{
+		generate_id(container);
+	}
+	jscss('add', container, "inline_tagger");
+	container.style.display = "none";
+	var container_form = container.appendChild(document.createElement('form'));
+
+	container_form.appendChild(document.createElement("b")).appendChild(document.createTextNode("Apply your own tag to this book: "));
+
+	var input = container_form.appendChild(document.createElement('input'));
+	input.type="text";
+	input.setAttribute("style", "font-size:12px;");
+
+	var button = container_form.appendChild(document.createElement('button'));
+	button.appendChild(document.createTextNode("+Tag"));
+	button.setAttribute("type", "button");
+	button.setAttribute("class", "button");
+	button.setAttribute("style", "font-size:12px;");
+
+	var url = "";
+	var params = "";
+
+	if (show_member_tags)
+	{
+		var member_tag_container = container.appendChild(document.createElement("div"));
+		member_tag_container.style.padding = "5px 0";
+		member_tag_container.style.overflow = "hidden";
+
+		url = "/scripts/member_tags.php";
+		params = "isbn="+isbn;
+		ajax_call(params, url, "post", "show_tags_callback", "", "", member_tag_container);
+		var callback = function () {ajax_call("isbn="+isbn, "/scripts/member_tags.php", "post", "show_tags_callback", "", "", member_tag_container);};
+		button.onclick = function(){ simple_save_tag(isbn, 1, input.value, callback); input.value = "";};
+	}
+	else
+	{
+		button.onclick = function(){ simple_save_tag(isbn, 1, input.value); input.value = "";};
+	}
+	container_form.onsubmit = function() {
+		button.onclick();
+		return false;
+	};
+
+	if (show_popular_tags)
+	{
+		var popular_tag_container = container.appendChild(document.createElement("div"));
+		popular_tag_container.style.padding = "5px 0";
+		popular_tag_container.style.overflow = "hidden";
+
+		popular_tag_container.appendChild(document.createElement("h4")).appendChild(document.createTextNode("Popular tags for this book:"));
+		url = "/scripts/popular_tags.php";
+		params = "isbn="+isbn;
+		ajax_call(params, url, "post", "show_tags_callback", false, false, popular_tag_container);
+	}
+
+	container.style.display = "";
+	AutoComplete_Create(generate_id(input), container.id, '/scripts/lookup_tags.php', 'k', 'post', 2, '', []);
+}
+
+function show_me_all_tags(container, isbn)
+{
+	if (typeof(container) != 'object')
+	{
+		var tmp = container;
+		container = document.getElementById(container);
+		if (!container)
+		{
+			document.write("<div id='"+tmp+"'></div>");
+			container = document.getElementById(tmp);
+		}
+	}
+	else if (container.id === "")
+	{
+		generate_id(container);
+	}
+
+	var all_tag_container = container.appendChild(document.createElement("div"));
+	all_tag_container.style.padding = "5px 0";
+	all_tag_container.style.overflow = "hidden";
+
+	all_tag_container.appendChild(document.createElement("h4")).appendChild(document.createTextNode("All tags:"));
+	var url = "/scripts/all_tags.php";
+	var params = "isbn="+isbn;
+	ajax_call(params, url, "post", "show_tags_callback", false, false, all_tag_container);
+
+	if (container.style)
+	{
+		container.style.display = "";
+	}
+}
+
+function simple_save_tag(tag_reference_id, tag_type, tag_name, callback)
+{
+	var url = "/scripts/save_tag.php";
+	var params = "name="+url_encode(tag_name)+'&type_id='+tag_type+'&reference_id='+tag_reference_id;
+	if (callback)
+	{
+		ajax_call(params, url, 'post', callback);
+	}
+	else
+	{
+		ajax_call(params, url, 'post');
+	}
+}
+
+function show_tags_callback(req, container)
+{
+	var response = {};
+	var tags = {};
+
+	if (req.responseXML.documentElement)
+	{
+		response = req.responseXML.documentElement;
+		if (response.getElementsByTagName("tag"))
+		{
+			tags = response.getElementsByTagName("tag");
+		}
+	}
+
+	var list = "";
+	if (container.getElementsByTagName("ul").length)
+	{
+		list = container.getElementsByTagName("ul").item(0);
+		while(list.firstChild)
+		{
+			list.removeChild(list.firstChild);
+		}
+	}
+	else
+	{
+		list = container.appendChild(document.createElement("ul"));
+	}
+
+	var li = "";
+	var img = "";
+	if (tags.length === 0)
+	{
+		//list.appendChild(document.createElement("li")).appendChild(document.createTextNode("(empty)"));
+		list.appendChild(document.createElement("li")).appendChild(document.createTextNode("---"));
+		if (isIE)
+		{
+			list.appendChild(document.createElement("li")).appendChild(document.createTextNode("\u00A0"));
+		}
+	}
+	var tag_link = "";
+	var tag_id = "";
+	var reference_id = "";
+	var current = "";
+	for (var ind = 0; ind < tags.length; ind++)
+	{
+		current = tags.item(ind);
+		tag_id = current.getAttribute("tag_id");
+		reference_id = current.getAttribute("reference_id");
+		li = list.appendChild(document.createElement("li"));
+		if (current.getAttribute("link"))
+		{
+			tag_link = document.createElement("a");
+			tag_link.setAttribute("href", current.getAttribute("link"));
+			tag_link.style.cursor = "pointer";
+			li.appendChild(tag_link);
+			tag_link.appendChild(document.createTextNode(current.firstChild.data));
+		}
+		else
+		{
+			if (isIE)
+			{
+				li.appendChild(document.createTextNode(current.firstChild.data));
+			}
+			else
+			{
+				li.appendChild(document.createTextNode(tags[ind].textContent));
+			}
+		}
+
+		img = li.appendChild(document.createElement("sup")).appendChild(document.createElement("img"));
+
+		var filename = "";
+		if (current.getAttribute("canDelete") == "true")
+		{
+			filename = "/images/delete.png";
+			addEvent(img, "click", delete_tag_closure(tag_id, reference_id));
+		}
+		else
+		{
+			filename = "/images/badflag.png";
+			addEvent(img, "click", report_tag_closure(tag_id, reference_id));
+		}
+		img.src = filename;
+		img.style.cursor = "pointer";
+		jscss("add", img.parentNode, "tag_sup");
+		hide_closure = 	function (img) {
+			return function () {
+				hide_list_item(img);
+			};
+		};
+		addEvent(img, "click", hide_closure(img));
+
+		tag_id = current.getAttribute("tag_id");
+		reference_id = current.getAttribute("reference_id");
+	}
+}
+
+function report_tag_closure(tag_id, reference_id)
+{
+	return function () { report_tag(tag_id, 1, reference_id); };
+}
+
+function delete_tag_closure(tag_id, reference_id)
+{
+	return function () { delete_tag(tag_id, 1, reference_id); };
+}
+
+/**This used to be a javascript closure, moved to global scope for efficiency's sake*/
+function hide_list_item(e)
+{
+	var current = e;
+	while (current.tagName.toLowerCase() != "li")
+	{
+		current = current.parentNode;
+	}
+	current.style.display = "none";
+}
+
+function setup_tagger_callback(req, id)
+{
+
+	var response = req.responseXML.documentElement;
+	var html_return = response.getElementsByTagName('html_return')[0].firstChild.data;
+
+	var x_offset = calculateOffsetLeft(document.getElementById('tagger_btn_'+id));
+	var y_offset = calculateOffsetTop(document.getElementById('tagger_btn_'+id));
+
+	var tagger = '';
+
+	var page_dimensions = new Array();
+	page_dimensions = get_page_dimensions();
+
+	generic_div_bk = document.createElement("div");
+	document.body.appendChild(generic_div_bk);
+
+	generic_div_bk.style.position = 'absolute';
+	generic_div_bk.style.display = '';
+	generic_div_bk.style.width = '100%';
+	generic_div_bk.style.height = Number(page_dimensions[1])+'px';
+	generic_div_bk.style.fontFamily = 'arial';
+	generic_div_bk.style.left = '0';
+	generic_div_bk.style.top = '0';
+	generic_div_bk.style.zIndex = '50';
+	generic_div_bk.style.background = "#555555";
+	generic_div_bk.style.filter = 'alpha(opacity=80)'; // IE
+	generic_div_bk.style.opacity = '0.8'; // FF
+
+	if (document.getElementById('tagger_pop_'+id))
+	{
+		tagger = document.getElementById('tagger_pop_'+id);
+		tagger.innerHTML = html_return;
+		tagger.style.display = '';
+	}
+	else
+	{
+		tagger = document.createElement("div");
+		document.body.appendChild(tagger);
+		tagger.id = 'tagger_pop_'+id;
+
+		var frm = document.getElementById('tag_frm_'+id);
+		var fld = document.getElementById('tag_name_'+id);
+		var btn = document.getElementById('tag_btn_'+id);
+
+		var width;
+		if (self.innerWidth)
+		{
+			width = self.innerWidth;
+		}
+		else if (document.documentElement && document.documentElement.clientWidth)
+		{
+			width = document.documentElement.clientWidth;
+		}
+		else if (document.body)
+		{
+			width = document.body.clientWidth;
+		}
+
+		var pop_width = 450;
+
+		tagger.innerHTML = html_return;
+		tagger.style.position = 'absolute';
+		tagger.style.width = pop_width+'px';
+		tagger.style.left = ((width/2)-(pop_width/2))+'px';
+		tagger.style.top = (y_offset-20)+'px';
+		tagger.style.zIndex = '52';
+	}
+	AutoComplete_Create('tag_name_'+id, 'tagger_pop_'+id, '/scripts/lookup_tags.php', 'k', 'post', 2, '', []);
+
+	document.getElementById('tag_name_'+id).focus();
+}
+
+function save_tag(id)
+{
+	if (generic_div_bk)
+	{
+		generic_div_bk.style.display = 'none';
+	}
+
+	var tag_name = document.getElementById('tag_name_'+id).value;
+	var tag_type = document.getElementById('tag_type_'+id).value;
+	var tag_reference_id = document.getElementById('tag_reference_'+id).value;
+
+	var url = "/scripts/save_tag.php";
+	var params = "name="+url_encode(tag_name)+'&type_id='+tag_type+'&reference_id='+tag_reference_id;
+	ajax_call(params, url, 'post','save_tag_callback', '', '', tag_reference_id);
+
+	document.getElementById('tagger_pop_'+id).style.display = 'none';
+
+	return false;
+}
+
+function save_member_tag(id)
+{
+	if (generic_div_bk)
+	{
+		generic_div_bk.style.display = 'none';
+	}
+
+	var tag_name = document.getElementById('tag_name_'+id).value;
+	var tag_type = document.getElementById('tag_type_'+id).value;
+	var tag_reference_id = document.getElementById('tag_reference_'+id).value;
+
+	var url = "/scripts/save_member_tag.php";
+	var params = 'name='+url_encode(tag_name)+'&type_id='+tag_type+'&reference_id='+tag_reference_id;
+	ajax_call(params, url, 'post','save_tag_callback', '', '', tag_reference_id);
+
+	document.getElementById('tagger_pop_'+id).style.display = 'none';
+
+	return false;
+}
+
+function save_tag_callback(req, tag_reference_id)
+{
+	if (document.getElementById('tags_'+tag_reference_id))
+		{
+		var response = req.responseXML.documentElement;
+		var html_return = response.getElementsByTagName('html_return')[0].firstChild.data;
+
+		tagger = document.getElementById('tags_'+tag_reference_id);
+		tagger.innerHTML = html_return;
+		tagger.style.display = '';
+		// AutoComplete_Create('tag_name_'+id, 'tagger_pop_'+id,
+		// '/scripts/lookup_tags.php', 'k', 'post', 2);
+		}
+
+}
+
+function delete_tag(tag_id, type_id, reference_id, rand_id)
+{
+	if (reference_id === 0)
+	{
+		answer = confirm('This will delete the tag FROM EVERY BOOK you\'ve added it to! If you intended to delete the tag from a particular book, please click \'Cancel\', then click on the tag name first.\n\nAre you sure that you want to delete ALL instances this tag?');
+		if (!answer)
+		{
+			return false;
+		}
+	}
+
+	var url = "/scripts/save_tag.php";
+	var params = "action=delete&tag_id="+tag_id+"&type_id="+type_id+"&reference_id="+reference_id;
+	ajax_call(params, url, 'post','save_tag_callback', '', '', reference_id);
+
+   	if (rand_id)
+	{
+		document.getElementById('display_tag_'+rand_id).style.display = 'none';
+	}
+
+	return true;
+}
+
+function report_tag(tag_id, type_id, reference_id, rand_id)
+{
+	if (rand_id)
+	{
+		document.getElementById('report_tag_'+rand_id).style.display = 'none';
+	}
+
+	var url = "/scripts/report_tag.php";
+	var params = "action=report&tag_id="+tag_id+"&type_id="+type_id+"&reference_id="+reference_id;
+	ajax_call(params, url, 'post');
+
+}
+
+function close_tag_popper(id)
+{
+	if (generic_div_bk)
+	{
+		generic_div_bk.style.display = 'none';
+	}
+
+	document.getElementById('tagger_pop_'+id).style.display = 'none';
+}
+
+/**
+* This library is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This library is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this library; if not, write to the Free Software
+* Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+*
+* � Copyright 2005 Richard Heyes
+*/
+
+/**
+ * Global vars
+ */
+__AutoComplete = [];
+/**
+ * Attaches the auto complete object to a form element. Sets onkeypress event on
+ * the form element.
+ *
+ * @param id - unique (per page) identifier for the usage of the autocomplete. String or numeric
+ * @param stopping_element_name
+ * @param url
+ * @param url_name - the key of the variable to be submitted
+ * @param http_method - (get / post)
+ * @param min_search_length
+ * @param form_id - id of form to submit on selection. Use empty string to prevent submission
+ * @param parameters - array of strings to pass as values of the p array to the given url
+ */
+function AutoComplete_Create (id, stopping_element_name, url, url_name, http_method, min_search_length, form_id, parameters)
+{
+    __AutoComplete[id] = {'url':url,
+    					  'url_name':url_name,
+    					  'http_method':http_method,
+                          'isVisible':false,
+                          'element':document.getElementById(id),
+                          'stopping_element_name':stopping_element_name,
+                          'min_search_length':min_search_length,
+                          'dropdown':null,
+                          'form_id':form_id,
+                          'highlighted':null,
+    					  'last_call':'',
+    					  'running':0,
+    					  'params':parameters};
+
+    __AutoComplete[id].element.setAttribute('autocomplete', 'off');
+    __AutoComplete[id].element.onkeydown  = function(e) {return AutoComplete_KeyDown(this.getAttribute('id'), e);};
+    __AutoComplete[id].element.onkeyup    = function(e) {return AutoComplete_KeyUp(this.getAttribute('id'), e);};
+    //__AutoComplete[id].element.onkeypress = function(e) {if (!e) {e = window.event;} if (e.keyCode == 13 || isOpera) {return false;}};
+    __AutoComplete[id].element.ondblclick = function() {AutoComplete_ShowDropdown(this.getAttribute('id'));};
+    __AutoComplete[id].element.onclick    = function(e) {if (!e) {e = window.event;} e.cancelBubble = true; e.returnValue = false;};
+    // We will have a separate cache per key submitted. (ex: keyword, author, title)
+    __AutoComplete[id]['cache'+url_name] = new Array();
+
+    // Hides the dropdowns when document clicked
+    var docClick = function()
+    {
+       for (id in __AutoComplete) {
+           AutoComplete_HideDropdown(id);
+       }
+    };
+
+    if (document.addEventListener) {
+        document.addEventListener('click', docClick, false);
+    } else if (document.attachEvent) {
+        document.attachEvent('onclick', docClick, false);
+    }
+
+    // Max number of items shown at once
+    if (arguments[2] != null) {
+        __AutoComplete[id].maxitems = arguments[2];
+        __AutoComplete[id].firstItemShowing = 0;
+        __AutoComplete[id].lastItemShowing  = arguments[2] - 1;
+    }
+
+    AutoComplete_CreateDropdown(id);
+
+    // Prevent select dropdowns showing thru
+    if (isIE) {
+        __AutoComplete[id].iframe = document.createElement('iframe');
+        __AutoComplete[id].iframe.id = id +'_iframe';
+		// Prevents a message about viewing unsecured items from showing on IE6
+        __AutoComplete[id].iframe.src = 'javascript:false';
+        __AutoComplete[id].iframe.style.position = 'absolute';
+        __AutoComplete[id].iframe.style.top = '0';
+        __AutoComplete[id].iframe.style.left = '0';
+        __AutoComplete[id].iframe.style.width = '0px';
+        __AutoComplete[id].iframe.style.height = '0px';
+        __AutoComplete[id].iframe.style.zIndex = '98';
+        __AutoComplete[id].iframe.style.visibility = 'hidden';
+
+        __AutoComplete[id].element.parentNode.insertBefore(__AutoComplete[id].iframe, __AutoComplete[id].element);
+    }
+}
+
+
+/**
+* Creates the dropdown layer
+*
+* @param string id The form elements id. Used to identify the correct dropdown.
+*/
+function AutoComplete_CreateDropdown(id)
+{
+	var left  = AutoComplete_GetLeft(id, __AutoComplete[id].element);
+	var top   = AutoComplete_GetTop(id, __AutoComplete[id].element) + __AutoComplete[id].element.offsetHeight;
+    var width = __AutoComplete[id].element.offsetWidth;
+    // Account for the borders that are given to the autocomplete dropdown
+    width -= 2;
+
+    __AutoComplete[id].dropdown = document.createElement('div');
+    __AutoComplete[id].dropdown.className = 'autocomplete'; // Don't use setAttribute()
+
+    __AutoComplete[id].element.parentNode.insertBefore(__AutoComplete[id].dropdown, __AutoComplete[id].element);
+
+    // Position it
+    __AutoComplete[id].dropdown.style.left       = left + 'px';
+    __AutoComplete[id].dropdown.style.top        = top + 'px';
+    __AutoComplete[id].dropdown.style.width      = width + 'px';
+    __AutoComplete[id].dropdown.style.zIndex     = '99';
+    __AutoComplete[id].dropdown.style.visibility = 'hidden';
+}
+
+
+/**
+* Gets left coord of given element
+*
+* @param object element The element to get the left coord for
+*/
+function AutoComplete_GetLeft(id, element)
+{
+    var curNode = element;
+    var left    = 0;
+
+    if (__AutoComplete[id].stopping_element_name!='')
+    {
+    	var stopping_element_name = __AutoComplete[id].stopping_element_name;
+
+    	do {
+	        left += curNode.offsetLeft;
+	        curNode = curNode.offsetParent;
+
+	    } while(curNode.id != stopping_element_name);
+    }
+	else
+	{
+	    do {
+	        left += curNode.offsetLeft;
+	        curNode = curNode.offsetParent;
+
+	    } while(curNode.tagName.toLowerCase() != 'body');
+	}
+
+    return left;
+}
+
+
+/**
+* Gets top coord of given element
+***
+* This does not work acuratly in IE6/7 most of the time because offsetTop is not calculated correctly. It ignores parents with position:relative
+* Solution is to have an absolute positioned stopping parent
+* http://www.quirksmode.org/dom/w3c_cssom.html
+***
+* @param object element The element to get the top coord for
+*/
+function AutoComplete_GetTop(id, element)
+{
+    var curNode = element;
+    var top    = 0;
+
+    if (__AutoComplete[id].stopping_element_name!='')
+    {
+    	var stopping_element_name = __AutoComplete[id].stopping_element_name;
+
+    	do {
+	        top += curNode.offsetTop;
+	        curNode = curNode.offsetParent;
+	    } while(curNode.id != stopping_element_name);
+    }
+    else
+    {
+	    do {
+	        top += curNode.offsetTop;
+	        curNode = curNode.offsetParent;
+
+	    } while(curNode.tagName.toLowerCase() != 'body');
+    }
+
+    return top;
+}
+
+
+/**
+* Shows the dropdown layer
+*
+* @param string id The form elements id. Used to identify the correct dropdown.
+*/
+function AutoComplete_ShowDropdown(id)
+{
+    var value = __AutoComplete[id].element.value;
+
+    if (value.length < __AutoComplete[id].min_search_length || value == __AutoComplete[id].last_call || __AutoComplete[id].running)
+    {
+    	return false;
+    }
+
+    __AutoComplete[id].running = 1;
+
+    // Moved this assigning of last call before checking internal cache to fix issue where last call is not updated on a cache search then an old value is shown when returning to the input box with the up and down arrows
+    __AutoComplete[id].last_call = value;
+
+    var url_name = __AutoComplete[id].url_name;
+
+    if (__AutoComplete[id]['cache'+url_name][value])
+    {
+	    if (__AutoComplete[id]['cache'+url_name][value].length > 0)
+	    {
+	    	AutoComplete_FillDropdown(id, __AutoComplete[id]['cache'+url_name][value]);
+	    	// Record that the showing process is finished so it will let another set show
+   			AutoComplete_ShowFinished(id);
+	    	return false;
+	    }
+    }
+
+	AutoComplete_HideAll();
+
+	var callback_vars = new Array;
+	callback_vars[0] = id;
+	callback_vars[1] = value;
+
+    var url = __AutoComplete[id]['url'];
+	var params = url_name+"="+url_encode(value);
+	var custom_params = __AutoComplete[id]['params'];
+	for(i in custom_params) {
+		params = params+"&p[]="+custom_params[i];
+	}
+	var http_method = __AutoComplete[id].http_method;
+	ajax_call(params, url, http_method, 'AutoComplete_ShowDropdown_callback', '', '', callback_vars);
+}
+
+function AutoComplete_ShowDropdown_callback(req, vars)
+{
+	var id = vars[0];
+	var value = vars[1];
+
+	if (req.responseText!='')
+   	{
+		__AutoComplete[id]['cache'+__AutoComplete[id].url_name][value] = eval(req.responseText);
+
+		AutoComplete_FillDropdown(id, eval(req.responseText));
+   	}
+
+   	// Record that the showing process is finished so it will let another set show
+   	AutoComplete_ShowFinished(id);
+}
+
+
+function AutoComplete_FillDropdown(id, response_array)
+{
+    var toDisplay = new Array();
+    var newDiv    = null;
+    var numItems  = __AutoComplete[id].dropdown.childNodes.length;
+    var results_size = 0;
+
+	var results = response_array[0];
+	var counts = response_array[1];
+
+	results_size = results.length;
+
+    // Remove all child nodes from dropdown
+    while (__AutoComplete[id].dropdown.childNodes.length > 0)
+    {
+        __AutoComplete[id].dropdown.removeChild(__AutoComplete[id].dropdown.childNodes[0]);
+    }
+
+    // No matches?
+    if (results_size == 0) {
+        AutoComplete_HideDropdown(id);
+        return;
+    }
+
+    // Add data to the dropdown layer
+    var tmp = null;
+    for (i=0; i<results_size; ++i)
+    {
+        if(document.getElementById('autocomplete_item_' + i))
+        {
+        	tmp = document.getElementById('autocomplete_item_' + i);
+        	tmp.parentNode.removeChild(tmp);
+        }
+
+    	newDiv = document.createElement('div');
+        newDiv.className = 'autocomplete_item'; // Don't use setAttribute()
+        newDiv.setAttribute('id', 'autocomplete_item_' + i);
+        newDiv.setAttribute('index', i);
+        newDiv.style.zIndex = '99';
+        newDiv.innerHTML = '<div id="autocomplete_item_value_'+id+'_'+i+'">' + results[i] + '</div>';
+
+        // Scrollbars are on display ?
+        if (toDisplay.length > __AutoComplete[id].maxitems && navigator.userAgent.indexOf('MSIE') == -1)
+        {
+            newDiv.style.width = __AutoComplete[id].element.offsetWidth - 22 + 'px';
+        }
+
+        newDiv.onmouseover = function() {AutoComplete_HighlightItem(__AutoComplete[id].element.getAttribute('id'), this.getAttribute('index'));};
+        newDiv.onclick     = function() {AutoComplete_SetValue(__AutoComplete[id].element.getAttribute('id')); AutoComplete_Submit(id); AutoComplete_HideDropdown(__AutoComplete[id].element.getAttribute('id'));};
+
+
+        if (counts && counts[i])
+        {
+        	newDiv.innerHTML = '<div class="autocomplete_item_count">' + counts[i] + '</div>' + newDiv.innerHTML;
+        }
+
+
+        __AutoComplete[id].dropdown.appendChild(newDiv);
+    }
+
+    // Too many items?
+    if (toDisplay.length > __AutoComplete[id].maxitems)
+    {
+        __AutoComplete[id].dropdown.style.height = (__AutoComplete[id].maxitems * 15) + 2 + 'px';
+    }
+    else
+    {
+        __AutoComplete[id].dropdown.style.height = '';
+    }
+
+    /**
+    * Set left/top in case of document movement/scroll/window resize etc
+    */
+    __AutoComplete[id].dropdown.style.left = AutoComplete_GetLeft(id, __AutoComplete[id].element);
+    __AutoComplete[id].dropdown.style.top  = AutoComplete_GetTop(id, __AutoComplete[id].element) + __AutoComplete[id].element.offsetHeight;
+
+
+    // Show the iframe for IE
+    if (isIE) {
+        __AutoComplete[id].iframe.style.top    = __AutoComplete[id].dropdown.style.top;
+        __AutoComplete[id].iframe.style.left   = __AutoComplete[id].dropdown.style.left;
+        __AutoComplete[id].iframe.style.width  = __AutoComplete[id].dropdown.offsetWidth;
+        __AutoComplete[id].iframe.style.height = __AutoComplete[id].dropdown.offsetHeight;
+
+        __AutoComplete[id].iframe.style.visibility = 'visible';
+    }
+
+
+    // Show dropdown
+    if (!__AutoComplete[id].isVisible) {
+        __AutoComplete[id].dropdown.style.visibility = 'visible';
+        __AutoComplete[id].isVisible = true;
+    }
+
+
+    // If now showing less items than before, reset the highlighted value
+    if (__AutoComplete[id].dropdown.childNodes.length != numItems) {
+        __AutoComplete[id].highlighted = null;
+    }
+}
+
+/**
+* Lets ShowDropdown know that the previous request has finished.
+* Starts another request if need be
+* Purpose is to prevent multiple ajax requests running on top of one another and backing up
+*/
+function AutoComplete_ShowFinished(id)
+{
+    __AutoComplete[id]['running'] = 0;
+    // Last call is emptied in AutoComplete_HideDropdown if no results are found. We would have an infinite loop if we called showdropdown
+    if(__AutoComplete[id].element.value != __AutoComplete[id].last_call && __AutoComplete[id].last_call!='')
+    {
+    	AutoComplete_ShowDropdown(id);
+    }
+}
+
+
+/**
+* Hides the dropdown layer
+*
+* @param string id The form elements id. Used to identify the correct dropdown.
+*/
+function AutoComplete_HideDropdown(id)
+{
+    if (__AutoComplete[id].iframe) {
+        __AutoComplete[id].iframe.style.visibility = 'hidden';
+    }
+
+    // added if() as test solution to JS errors like
+    // https://admin.paperbackswap.com:24030/accounts/session_details.php?session_id=1829222926
+    if (typeof __AutoComplete[id].dropdown != 'undefined' && __AutoComplete[id].dropdown != null)
+    {
+    	__AutoComplete[id].dropdown.style.visibility = 'hidden';
+    }
+    else if (typeof __AutoComplete[id]['dropdown'] != 'undefined' && __AutoComplete[id]['dropdown'] != null)
+    {
+    	__AutoComplete[id]['dropdown'].style.visibility = 'hidden';
+    }
+    
+    __AutoComplete[id].highlighted = null;
+    __AutoComplete[id].isVisible = false;
+	// Empty last call so the after hiding the box with Esc showing will work. Otherwise it is not show if the value is the same as the last call
+    __AutoComplete[id].last_call = '';
+}
+
+
+/**
+* Hides all dropdowns
+*/
+function AutoComplete_HideAll()
+{
+    for (id in __AutoComplete) {
+        AutoComplete_HideDropdown(id);
+    }
+}
+
+
+/**
+* Highlights a specific item
+*
+* @param string id    The form elements id. Used to identify the correct dropdown.
+* @param int    index The index of the element in the dropdown to highlight
+*/
+function AutoComplete_HighlightItem(id, index)
+{
+    if (__AutoComplete[id].dropdown.childNodes[index]) {
+        for (var i=0; i<__AutoComplete[id].dropdown.childNodes.length; ++i) {
+            if (__AutoComplete[id].dropdown.childNodes[i].className == 'autocomplete_item_highlighted') {
+                __AutoComplete[id].dropdown.childNodes[i].className = 'autocomplete_item';
+            }
+        }
+
+        __AutoComplete[id].dropdown.childNodes[index].className = 'autocomplete_item_highlighted';
+        __AutoComplete[id].highlighted = index;
+    }
+}
+
+
+/**
+* Moves the highlight up or down
+*
+* @param string id    The form elements id. Used to identify the correct dropdown.
+* @param int    movment to apply to highlight (1 down, -1 up)
+*/
+function AutoComplete_Highlight(id, index)
+{
+    // Out of bounds checking, will switch back to orignally typed/searched value
+    if (index == 1 && __AutoComplete[id].highlighted == __AutoComplete[id].dropdown.childNodes.length - 1)
+    {
+        __AutoComplete[id].dropdown.childNodes[__AutoComplete[id].highlighted].className = 'autocomplete_item';
+        __AutoComplete[id].highlighted = null;
+    }
+    else if (index == -1 && __AutoComplete[id].highlighted == 0)
+    {
+        __AutoComplete[id].dropdown.childNodes[0].className = 'autocomplete_item';
+        //__AutoComplete[id].highlighted = __AutoComplete[id].dropdown.childNodes.length;
+        __AutoComplete[id].highlighted = null;
+    }
+    // Nothing highlighted at the moment
+    else if (__AutoComplete[id].highlighted == null)
+    {
+		// Default go to first item
+    	var newIndex = 0;
+    	if (index == -1)
+		{
+			newIndex = __AutoComplete[id].dropdown.childNodes.length - 1;
+		}
+    	__AutoComplete[id].dropdown.childNodes[newIndex].className = 'autocomplete_item_highlighted';
+        __AutoComplete[id].highlighted = newIndex;
+    }
+    else
+    {
+        // Move existing highlight up or down
+    	if (__AutoComplete[id].dropdown.childNodes[__AutoComplete[id].highlighted])
+        {
+            __AutoComplete[id].dropdown.childNodes[__AutoComplete[id].highlighted].className = 'autocomplete_item';
+        }
+
+        var newIndex = __AutoComplete[id].highlighted + index;
+
+        if (__AutoComplete[id].dropdown.childNodes[newIndex])
+        {
+            __AutoComplete[id].dropdown.childNodes[newIndex].className = 'autocomplete_item_highlighted';
+            __AutoComplete[id].highlighted = newIndex;
+        }
+    }
+}
+
+/**
+* Sets the input to a given value
+*
+* @param string id    The form elements id. Used to identify the correct dropdown.
+*/
+function AutoComplete_SetValue(id)
+{
+	//make sure to use textContent here instead of innerHTML as it will handle html characters correctly
+	var new_value = '';
+	if (__AutoComplete[id].highlighted == null)
+	{
+		// Used when user is moving back to the original value using up or down arrow
+		new_value = __AutoComplete[id].last_call;
+	}
+	else 
+	{
+    	new_value = $('#autocomplete_item_value_'+id+'_'+__AutoComplete[id].highlighted).html();
+	}
+	__AutoComplete[id].element.value = new_value;
+
+
+	// Could not find where an _ss field was used ZDH 1/18/10
+	if (__AutoComplete[id].form_id!='')
+	{
+		if (document.getElementById(__AutoComplete[id].form_id+'_ss'))
+		{
+			document.getElementById(__AutoComplete[id].form_id+'_ss').value = 't';
+		}
+	}
+}
+
+
+function AutoComplete_Submit(id)
+{
+	if (__AutoComplete[id].form_id!='')
+	{
+		document.getElementById(__AutoComplete[id].form_id).submit();
+	}
+}
+
+
+/**
+* Checks if the dropdown needs scrolling
+*
+* @param string id    The form elements id. Used to identify the correct dropdown.
+*/
+function AutoComplete_ScrollCheck(id)
+{
+    // Scroll down, or wrapping around from scroll up
+    if (__AutoComplete[id].highlighted > __AutoComplete[id].lastItemShowing) {
+        __AutoComplete[id].firstItemShowing = __AutoComplete[id].highlighted - (__AutoComplete[id].maxitems - 1);
+        __AutoComplete[id].lastItemShowing  = __AutoComplete[id].highlighted;
+    }
+
+    // Scroll up, or wrapping around from scroll down
+    if (__AutoComplete[id].highlighted < __AutoComplete[id].firstItemShowing) {
+        __AutoComplete[id].firstItemShowing = __AutoComplete[id].highlighted;
+        __AutoComplete[id].lastItemShowing  = __AutoComplete[id].highlighted + (__AutoComplete[id].maxitems - 1);
+    }
+
+    __AutoComplete[id].dropdown.scrollTop = __AutoComplete[id].firstItemShowing * 15;
+}
+
+
+/**
+* Function which handles the keypress event
+*
+* @param string id    The form elements id. Used to identify the correct dropdown.
+*/
+function AutoComplete_KeyDown(id)
+{
+    // Mozilla
+    if (arguments[1] != null) {
+        event = arguments[1];
+    }
+
+    var keyCode = event.keyCode;
+
+    switch (keyCode) {
+
+        // Return/Enter
+        case 13:
+            if (__AutoComplete[id].highlighted != null) {
+                AutoComplete_SetValue(id);
+                AutoComplete_Submit(id);
+                AutoComplete_HideDropdown(id);
+            }
+
+            event.returnValue = true;
+            event.cancelBubble = true;
+            break;
+
+        // Escape
+        case 27:
+            AutoComplete_HideDropdown(id);
+            event.returnValue = false;
+            event.cancelBubble = true;
+            break;
+
+        // Up arrow
+        case 38:
+            if (!__AutoComplete[id].isVisible) {
+                AutoComplete_ShowDropdown(id);
+            }
+
+            AutoComplete_Highlight(id, -1);
+            AutoComplete_ScrollCheck(id, -1);
+            AutoComplete_SetValue(id);
+            return false;
+            break;
+
+        // Tab
+        case 9:
+            if (__AutoComplete[id].isVisible) {
+                AutoComplete_HideDropdown(id);
+            }
+            return;
+
+        // Down arrow
+        case 40:
+            if (!__AutoComplete[id].isVisible) {
+                AutoComplete_ShowDropdown(id);
+            }
+
+            AutoComplete_Highlight(id, 1);
+            AutoComplete_ScrollCheck(id, 1);
+            AutoComplete_SetValue(id);
+            return false;
+            break;
+    }
+}
+
+
+/**
+* Function which handles the keyup event
+*
+* @param string id    The form elements id. Used to identify the correct dropdown.
+*/
+function AutoComplete_KeyUp(id)
+{
+    // Mozilla
+    if (arguments[1] != null) {
+        event = arguments[1];
+    }
+
+    var keyCode = event.keyCode;
+
+    switch (keyCode) {
+
+    	// Return/Enter
+		case 13:
+			event.returnValue = false;
+			event.cancelBubble = true;
+			break;
+
+        // Escape
+        case 27:
+            AutoComplete_HideDropdown(id);
+            event.returnValue = false;
+            event.cancelBubble = true;
+            break;
+
+        // Arrows - prevent updating the suggestion list as they arrow through it
+        case 37:
+        case 38:
+        case 39:
+        case 40:
+            return false;
+            break;
+
+        // This controls searching when a key is pressed. We could break this out and restrict it to only search with a certain set of keys. That would prevent the minor problem of it searching again after someone uses the arrows to select a new value
+        default:
+            AutoComplete_ShowDropdown(id);
+            break;
+    }
+}
+
+/**
+* Returns whether the dropdown is visible
+*
+* @param string id    The form elements id. Used to identify the correct dropdown.
+*/
+function AutoComplete_isVisible(id)
+{
+    return __AutoComplete[id].dropdown.style.visibility == 'visible';
+}
+
+function lookup_book_info(isbn, cache)
+{
+	if (typeof(cache)=='undefined')
+	{
+		cache = 'yes';
+	}
+	var url = "/scripts/book_details_lookup.php";
+	var params = { "isbn" : isbn, "cache" : cache };
+	$.post(url, params, function(data) {
+    	$.colorbox({html : $("html_return", data).text(), maxWidth:"960px"});
+   	});
+}
+
+function passport_info(b)
+{
+	var url = "/scripts/passport.php";
+	var params = { "b" : b };
+	$.post(url, params, function(data) {
+    	$.colorbox({html : $("html_return", data).text(), maxWidth:"960px"});
+   	});
+}
+
+function add_to_friends(friend)
+{
+	if (!user_logged_in)
+	{
+		alert("You must be logged in to use this feature.");
+		return false;
+	}
+
+	var url = "/scripts/add_to_friends.php";
+	var params = "b="+friend;
+	ajax_call(params, url, 'post', 'add_to_friends_callback');
+}
+
+function add_to_friends_callback(req)
+{
+	var response = req.responseXML.documentElement;
+	alert(response.getElementsByTagName('msg')[0].firstChild.data);
+	return true;
+}
+
+var show_hidden_selects = function() {};
+
+function generate_simple_overlay(content, innerWidth, closeButton)
+{
+	$.colorbox({
+		html : content,
+		innerWidth : innerWidth + "px"
+	});
+}
+
+// Returns pageWidth,pageHeight,windowWidth,windowHeight in an array
+function get_page_dimensions()
+{
+	var xScroll, yScroll;
+
+	if (document.body && window.innerHeight && window.scrollMaxY)
+	{
+		xScroll = document.body.scrollWidth;
+		yScroll = window.innerHeight + window.scrollMaxY;
+	}
+	else if (document.body && (document.body.scrollHeight > document.body.offsetHeight))
+	{ 	// all but Explorer Mac
+		xScroll = document.body.scrollWidth;
+	yScroll = document.body.scrollHeight;
+	}
+	else if (document.documentElement && document.documentElement.scrollHeight > document.documentElement.offsetHeight)
+	{ 	// Explorer 6 strict mode
+		xScroll = document.documentElement.scrollWidth;
+	yScroll = document.documentElement.scrollHeight;
+	}
+	else if (document.body)
+	{ 	// Explorer Mac...would also work in Mozilla and Safari
+		xScroll = document.body.offsetWidth;
+	yScroll = document.body.offsetHeight;
+	}
+
+	var windowWidth, windowHeight;
+
+	if (self.innerHeight)
+	{ 	// all except Explorer
+		windowWidth = self.innerWidth;
+	windowHeight = self.innerHeight;
+	}
+	else if (document.documentElement && document.documentElement.clientHeight)
+	{ 	// Explorer 6 Strict Mode
+		windowWidth = document.documentElement.clientWidth;
+	windowHeight = document.documentElement.clientHeight;
+	}
+	else if (document.body)
+	{ 	// other Explorers
+		windowWidth = document.body.clientWidth;
+	windowHeight = document.body.clientHeight;
+	}
+
+	var pageHeight, pageWidth;
+
+	// for small pages with total height less then height of the viewport
+	if (yScroll < windowHeight)
+	{
+		pageHeight = windowHeight;
+	}
+	else
+	{
+		pageHeight = yScroll;
+	}
+
+	// for small pages with total width less then width of the viewport
+	if (xScroll < windowWidth)
+	{
+		pageWidth = windowWidth;
+	}
+	else
+	{
+		pageWidth = xScroll;
+	}
+
+	arrayPageSize = new Array(pageWidth,pageHeight,windowWidth,windowHeight);
+
+	return arrayPageSize;
+}
+
+function streamline_book_order(isbn)
+{
+	var url = "/scripts/streamline_overlay.php";
+	var params = { "isbn" : isbn };
+	$.get(url, params, function(data) {
+    	$.colorbox({html : $("html_return", data).text()});
+   	});
+}
+
+function lookup_smooth_div_image(img_path)
+{
+	 $.colorbox({href:img_path});
+}
+
+function remove_recommendation(rec_id, button)
+{
+	var url = "/scripts/recommendations.php";
+	var params = "action=delete&rec_id="+rec_id;
+	ajax_call(params, url, "post", function(){
+		var current = button;
+		while(current.tagName.toLowerCase() != "tr")
+		{
+			current = current.parentNode;
+		}
+		current.style.display = "none";
+	});
+}
+
+function toggle_genre_selections(select_id, position, size, set_value)
+{	
+	var value = '';
+	
+	if (typeof(set_value)!='undefined')
+	{
+		value = set_value;
+	}
+	else
+	{
+		var objectID = '#' + select_id + position;
+		value = $(objectID).val();
+	}
+
+	var start = position + 1;
+	for (var i=start; i<=5; i++)
+	{
+		$('#' + select_id + i).hide();
+		$('#' + select_id + i).html('');
+	}
+
+	if (value !== '')
+	{
+		get_genre_selections(select_id, (position + 1), value, size);
+	}
+}
+
+function get_genre_selections(select_id, position, node_id, size)
+{
+	if (size !== '' && size !== 'auto')
+	{
+		size = parseInt(size,10);
+	}
+	else
+	{
+		size = 'auto';
+	}
+
+	var url = "/scripts/genre_loader.php";
+	var params = { "node_id" : node_id };
+
+	$.getJSON(url, params, function(data) {
+		var temp_size = 0;
+		var objectID = '#' + select_id + position;
+
+		$.each(data, function(i,v) {
+			if (typeof(v)=="object")
+			{
+				//$(objectID).append(new Option(v.name, v.value));
+				$(objectID).append('<option value="' + v.value + '">' + v.name + '</option>');
+				temp_size = v.size;
+			}
+		});
+
+		$(objectID).attr('size', (size=='auto') ? temp_size : size);
+		$(objectID).addClass("please_show");
+		if (temp_size > 0)
+		{
+			$(objectID).show();
+		}
+	});
+}
+
+function save_fav_genre(id, current_url)
+{
+	var g = '0';
+	var g2 = '0';
+	var g3 = '0';
+	var g4 = '0';
+	var g5 = '0';
+
+	if (document.getElementById(id + '1').value != null) { g =  document.getElementById(id + '1').value; }
+	if (document.getElementById(id + '2').value != null) { g2 = document.getElementById(id + '2').value; }
+	if (document.getElementById(id + '3').value != null) { g3 = document.getElementById(id + '3').value; }
+	if (document.getElementById(id + '4').value != null) { g4 = document.getElementById(id + '4').value; }
+	if (document.getElementById(id + '5').value != null) { g5 = document.getElementById(id + '5').value; }
+
+	var i = id.substr((id.length-1),1);
+
+	var pass_vars = new Array();
+	pass_vars.id = id;
+	if (typeof(current_url)!="undefined")
+	{
+		pass_vars.url = url_encode(current_url);
+	}
+	pass_vars.i = i;
+
+	var url = "/scripts/save_fav_genre.php";
+	var params = "g=" + g + "&g2=" + g2 + "&g3=" + g3 + "&g4=" + g4 + "&g5=" + g5 + "&i=" + i;
+	ajax_call(params, url, 'post', 'save_fav_genre_callback', '', '', pass_vars);
+}
+
+function save_fav_genre_callback(req, pass_vars)
+{
+	var genre = false;
+	if(req.responseXML.documentElement)
+	{
+		response = req.responseXML.documentElement;
+		genre = response.getElementsByTagName('html_return')[0].firstChild.data;
+	}
+	var passed_id = pass_vars.id;
+
+	if (pass_vars.url)
+	{
+		var passed_url = pass_vars.url;
+	}
+
+	var passed_i = pass_vars.i;
+	if(genre)
+	{
+		document.getElementById(passed_id+'_result').firstChild.innerHTML = ' <i>'+genre+'</i> ';
+	}
+	else
+	{
+		document.getElementById(passed_id+'_result').firstChild.innerHTML = ' <i>Genre not saved: Error</i> ';
+	}
+	document.getElementById(passed_id+'_result').style.display = '';
+	document.getElementById(passed_id+'_holder').style.display = 'none';
+
+	if (passed_i==3 && typeof(passed_url)!="undefined")
+	{
+		self.location.href = url_decode(passed_url);
+	}
+}
+
+function clear_fav_genre(id)
+{
+	var i = id.substr((id.length-1),1);
+	var pass_vars = new Array();
+	pass_vars.id = id;
+	pass_vars.i = i;
+
+	var url = "/scripts/save_fav_genre.php";
+	var params = "g=0&g2=0&g3=0&g4=0&g5=0&i=" + i;
+	ajax_call(params, url, 'post');
+
+	toggle_genre_selections(id,0,'1','');
+	get_genre_selections(id, '1', 1000, 1);
+	document.getElementById(id+'_result').style.display = 'none';
+	document.getElementById(id+'_holder').style.display = '';
+}
+
+function get_rurl()
+{
+	var domain = "paperbackswap.com";
+	var href = self.location.href;
+	return encodeURIComponent(href.substring(href.indexOf(domain) + domain.length));
+}
+
+//This only exists as a seperate function so it can be over-ridden
+function get_market_rurl()
+{
+	return get_rurl();
+}
+
+function show_fav_genre_overlay()
+{
+	var url = "/scripts/display_fav_genre_selector.php";
+	$.post(url, null, function(data) {
+		$.colorbox({html : $("html_return", data).text(), width:'960px'});
+	});
+}
+
+function save_book_note(isbn, id)
+{
+	var n = $('#book_note_' + isbn + '_' + id).val();
+	var url = "/scripts/save_book_note.php";
+	var params = { "n" : url_encode(n), "isbn" : isbn };
+	$.post(url, params, function(data) {
+		if ($("note", data).text() == '')
+		{
+			hide_note(isbn);
+		}
+		else
+		{
+			show_note(isbn);
+		}
+
+		if ($("msg", data).text() != 'Your note has been saved.')
+		{
+			alert($("msg", data).text() + "\n\nAttempted Note:" + $("note", data).text());
+		}
+	});
+}
+
+function display_book_note_editor(isbn)
+{
+	var url = "/scripts/display_book_note_editor.php";
+	var params = { "isbn" : isbn };
+	$.post(url, params, function(data) {
+		$.colorbox({html : $("html_return", data).text()});
+	});
+}
+
+function show_note(isbn)
+{
+	if (isbn)
+	{
+		var url = "/scripts/display_book_note.php";
+		var params = { "isbn" : isbn };
+		$.post(url, params, function(data) {
+			$('#book_note_' + isbn + '_display').html($("html_return", data).text()).show();
+		});
+	}
+}
+
+function hide_note(isbn)
+{
+	if (isbn)
+	{
+		$('#book_note_' + isbn + '_display').hide();
+	}
+}
+
+function process_note_save(isbn,id)
+{
+	save_book_note(isbn,id);
+	$.colorbox.close();
+}
+
+// Created for textareas.
+// Usage :: <textarea maxlength="40" onkeyup="return
+// is_max_length(this);"></textarea>
+function is_max_length(obj)
+{
+	var mlength = obj.getAttribute ? parseInt(obj.getAttribute("maxlength"),10) : "";
+	if (obj.getAttribute && obj.value.length>mlength)
+	{
+		obj.value = obj.value.substring(0,mlength);
+	}
+}
+
+function format_currency(num)
+{
+	num = num.toString();
+	if (isNaN(num))
+	{
+		num = "0";
+	}
+	sign = (num == (num = Math.abs(num)));
+	num = Math.floor(num*100+0.50000000001);
+	cents = num%100;
+	num = Math.floor(num/100).toString();
+	if (cents<10)
+	{
+		cents = "0" + cents;
+	}
+	return (((sign) ? '' : '-') + num + '.' + cents);
+}
+
+// Simple function to destroy ab element in the DOM
+function removeElementById(elemId)
+{
+	document.getElementById(elemId).parentNode.removeChild(document.getElementById(elemId));
+}
+
+function javascipt_GET(varname, url)
+{
+	if (!url)
+	{
+		var url = window.location.href;
+	}
+	var qparts = url.split("?");
+	if (qparts.length === 0)
+	{
+		return "";
+	}
+	var query = qparts[1];
+	var vars = query.split("&");
+	var value = "";
+	for (i=0;i<vars.length;i++) {
+		var parts = vars[i].split("=");
+		if (parts[0] == varname) {
+			value = parts[1];
+			break;
+		}
+	}
+	return value;
+}
+
+/*
+ * Function to save a member preference to the member_preferences table via AJAX...returns JSON
+ *
+ * n = preferences name (string)
+ * v = preferences value (string)
+ * a = alert member of preference change (boolean)
+ */
+function save_member_preference(n, v, a)
+{
+	if (check_member_login())
+	{
+		if (!a)
+		{
+			var a = false;
+		}
+		var url = "/scripts/save_member_preference.php";
+		var params = "n=" + url_encode(n) + "&v=" + url_encode(v);
+		var callback = function (req)
+		{
+			var response = eval("(" + req.responseText+ ")");
+			if (a)
+			{
+				if (typeof(response)=="object" && response["msg"]!="failure")
+				{
+					alert("Your preference has been saved.");
+				}
+				else
+				{
+					alert("Your preference was NOT saved.\n\nPlease try again.");
+				}
+			}
+		};
+		ajax_call(params, url, 'post', callback);
+	}
+}
+
+function selectAll(form_id, state)
+{
+	var this_form = eval("document." + form_id + ".elements");
+	for (i = 0; i < this_form.length; i++)
+	{
+		var checkbox = this_form[i];
+		checkbox.checked = state;
+	}
+}
+
+function record_search_click(search_id, isbn, result_number)
+{
+	ajax_call("isbn="+isbn+"&search_id="+search_id+"&result_number="+result_number, "/scripts/record_search_click.php", "POST");
+}
+
+/**
+Adds rich error tracking to a function call.
+@param callback Any callback, as a Function object or a string
+@param arguments An array of the arguments expected by callback.  Order is important.
+@param error_callback A callback that can handle errors.  Its method signature should be funciton (msg, page, line, args),
+where args is an optional parameter for additional information.
+@param Arguments to be passed to the args field of error_callback.  This filed will always get a funcname and args appended
+to it, derived from the callback and arguments parameters
+@return mixed The value returned by callback
+*/
+function error_tracking_call_func(callback, callback_arguments, error_callback, error_arguments)
+{
+	if (typeof error_callback == "undefined")
+	{
+		error_callback = rich_vanilla_error_catcher;
+	}
+	if (typeof error_arguments == "undefined")
+	{
+		error_arguments = {};
+	}
+
+	if (typeof callback == "string")
+	{
+		error_arguments.func = callback;
+		callback = (new Function("return " + callback + ";"))();
+	}
+	else if (!callback.name || callback.name == "")
+	{
+		error_arguments.func = "Anonymous";
+	}
+	else
+	{
+		error_arguments.func = callback.name;
+	}
+	error_arguments.func_args = callback_arguments;
+
+	var tmp_onerror = window.onerror;
+	window.onerror = function (msg, page, line){
+		return error_callback(msg, page, line, error_arguments);
+	};
+	
+	var tmp_return = null;
+	
+	if (callback && callback_arguments)
+	{
+		tmp_return = callback.apply(null, callback_arguments);
+	}
+	else if (callback)
+	{
+		tmp_return = callback();
+	}
+
+	window.onerror = tmp_onerror;
+	
+	return tmp_return;
+}
+
+function ajax_call_error_catcher(msg, page, line, args)
+{
+	if(typeof args != "undefined")
+	{
+		msg += "\nAJAX call URL: "+args.url;
+		msg += "\nAJAX call params: "+args.params;
+	}
+	return rich_vanilla_error_catcher(msg, page, line, args);
+
+}
+
+function rich_vanilla_error_catcher(msg, page, line, args)
+{
+	if(typeof args != "undefined")
+	{
+		msg += "\nFunction name: "+args.func;
+	}
+	return js_error_catcher(msg, page, line);
+}
+
+function show_quick_registration()
+{
+	var url = "/scripts/quick_registration.php";
+	$.post(url, null, function(data) {
+		$.colorbox({html : $("html_return", data).text()});
+	});
+}
+
+function confirm_reg_info()
+{
+	var qr_name = document.getElementById('qr_form').elements['name'];
+	var qr_username = document.getElementById('qr_form').elements['username'];
+	var qr_password = document.getElementById('qr_form').elements['password'];
+
+	/* this was added to prevent the inside-textbox-prompt default */
+	if(qr_name.value == 'Your Full Name: (e.g. Jane Smith)')
+	{
+		alert("Please enter your full name in the box before clicking the \"Sign Up\" button.");
+		return false;
+	}
+	
+	if	(qr_name.value=='' || qr_username.value=='' || qr_password.value=='')
+	{
+		alert("Please ensure all fields have been filled out: Name, Email, and Password\n\nThen click the \"Sign Up\" button.");
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+}
+
+function confirm_reg_info_2()
+{
+	var qr_name = document.getElementById('qr_form').elements['name'];
+	var qr_username = document.getElementById('qr_form').elements['username'];
+	var qr_password = document.getElementById('qr_form').elements['password'];
+
+	if	(qr_name.value=='' || qr_username.value=='' || qr_password.value=='')
+	{
+		alert("Please ensure all fields have been filled out: Name, Email, and Password\n\nThen click the \"Start Swapping\" button.");
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+}
+
+function toggle_login_form()
+{
+	if (document.getElementById('new_member_QR').style.display=='none')
+	{
+		document.getElementById('existing_member_QL').style.display = 'none';
+		document.getElementById('new_member_QR').style.display = '';
+		return true;
+	}
+
+	if (document.getElementById('existing_member_QL').style.display=='none')
+	{
+		document.getElementById('new_member_QR').style.display = 'none';
+		document.getElementById('existing_member_QL').style.display = '';
+		return true;
+	}
+
+	return false;
+}
+
+function simple_shade(id)
+{
+	var o = document.getElementById(id);
+	o.style.display = (o.style.display == "none") ? "" : "none";
+}
+
+function simple_shade_multi(arr)
+{
+	for (x in arr)
+  	{
+  		simple_shade(arr[x]);
+  	}
+}
+
+function windowShade(e, animate)
+{
+	if(typeof e !== "object")
+	{
+		e = document.getElementById(e);
+	}
+
+	if(e.style.display == "none")
+	{
+		e.style.display = "block";
+	}
+	else
+	{
+		e.style.display = "none";
+	}
+}
+
+function animate(target, attribute, endValue, time, endingCallback, units)
+{
+	if(typeof target != "object")
+	{
+		target = document.getElementById(target);
+	}
+
+	var getter = new Function("target", "return target."+attribute);
+	if(units)
+	{
+		var setter = new Function("target", "value", "target."+attribute+"=value+"+units);
+	}
+	else
+	{
+		var setter = new Function("target", "value", "target."+attribute+"=value");
+	}
+
+	var startValue = getter(target);
+
+	if(startValue < endValue)
+	{
+		var test = function() { return getter(target) < endValue};
+	}
+	else if (startValue > endValue)
+	{
+		var test = function() { return getter(target) > endValue};
+	}
+	else
+	{
+		//Nothing to animate!
+		return;
+	}
+
+	/*Animate at 24 FPS*/
+	var frames = Math.ceil((time*1000)/24);
+	var stepSize = Math.ceil((endValue - startValue)/frames);
+
+	var step = function() {
+
+		if(test())
+		{
+			setTimeout(step, 42);
+		}
+		else if(endingCallback)
+		{
+			endingCallback();
+		}
+	};
+
+	step();
+}
+
+/* used to clear the prompt out of input boxes and set typing color to black for searches and standard profile lists (i'm currently reading, etc.) */
+function setup_widget_search(id)
+{
+	var search_box = document.getElementById(id);
+
+	if (search_box.value==='Enter ISBN or exact book title...'
+		|| search_box.value==='Enter Author\'s Name...'
+		|| search_box.value==='Title, Author, ISBN or Keyword...'
+		|| search_box.value==='Enter Quote (without quotation marks)...')
+	{
+		search_box.value = '';
+	}
+
+	search_box.style.color = '#000';
+}
+
+/* expands the "more..." added by display_book() if optional $truncate_description is set to true */
+function reveal_description(id)
+{
+	var descr = document.getElementById('descr_' + id);
+	var description = document.getElementById('description_' + id);
+
+	descr.style.display = "none";
+	description.style.display = "block";
+}
+
+function activate_genre_popup_control(callback, url)
+{
+	var on_success = function(req)
+	{
+		var response = req.responseXML.documentElement;
+		if(!response)
+		{
+			alert("Your request could not be completed at this time.  Please refresh the page and try again.");
+			return;
+		}
+		var genres = response.getElementsByTagName("Genre");
+		if(!genres)
+		{
+			var content = document.createTextElement("You have not selected any favorite genres.");
+		}
+		else
+		{
+			var content = document.createElement("div");
+			content.appendChild(document.createElement("h3")).appendChild(document.createTextNode("Select a Genre"));
+			ol = content.appendChild(document.createElement("ol"));
+			ol.style.textAlign = "left";
+			var i, j, li, a, genre, current, node_id, title;
+			for(i = 0; i < genres.length; i++)
+			{
+				li = ol.appendChild(document.createElement("li"));
+				genre = genres.item(i);
+				for (j=0; j < 5; j++)
+				{
+					current = genre.getElementsByTagName("Child"+j);
+					if(!current)
+					{
+						break;
+					}
+					if(!current.length)
+					{
+						break;
+					}
+					if(j > 0)
+					{
+						li.appendChild(document.createTextNode(" >> "));
+					}
+					node_id = current.item(0).getElementsByTagName("NodeID").item(0).firstChild.data;
+					title = current.item(0).getElementsByTagName("Name").item(0).firstChild.data;
+					a = li.appendChild(document.createElement("a"));
+					a.style.cursor = "pointer";
+					callback(a, node_id);
+					a.appendChild(document.createTextNode(title));
+				}
+			}
+		}
+
+		$.colorbox({ html : content, innerWidth : '300px' });
+	};
+
+	ajax_call("", url, "GET", on_success);
+}
+
+function display_friends_callback(req)
+{
+	var response = req.responseXML.documentElement;
+	var html_return = response.getElementsByTagName('html_return')[0].firstChild.data;
+	temp_div = document.getElementById('friends');
+	temp_div.innerHTML = html_return;
+
+	return true;
+}
+
+function add_to_book_list(isbn)
+{
+	var url = "/scripts/add_to_book_list.php";
+	var params = { "isbn" : isbn };
+	$.post(url, params, function(data) {
+		$.colorbox({html : $("html_return", data).text()});
+	});}
+
+function nbs_getElementsByClassName(class_name, element_type)
+{
+	if (typeof(element_type)=='undefined')
+	{
+		var element_type = 'input';
+	}
+
+	var elements = document.getElementsByTagName(element_type);
+	var matches = new Array();
+
+	for (var i=0; i < elements.length; i++)
+	{
+		if (elements[i] && jscss("check", elements[i], class_name))
+		{
+			matches.push(elements[i]);
+		}
+	}
+
+	return matches;
+}
+
+/*Workaround for Firefox's 4096-character limit for XML nodes
+Taken from http://www.coderholic.com/firefox-4k-xml-node-limit
+*/
+function getNodeText(xmlNode)
+{
+    if(!xmlNode) return '';
+    if(typeof(xmlNode.textContent) != "undefined") return xmlNode.textContent;
+    return xmlNode.firstChild.nodeValue;
+}
+
+// ----------------------------------------------------//
+// TOOLTIP.JS code BEGIN
+// ----------------------------------------------------//
+
+/* --- v 2.1 17th June 2006 http://boxover.swazz.org */
+/*
+ZDH 7/30/2007 Went through and commented out a bunch of things that we did not use in this tooltip
+*/
+
+addEvent(window, "load", init);
+addEvent(document, "mousemove", moveMouse);
+addEvent(document, "click", checkMove);
+
+var oDv=document.createElement("div");
+var dvHdr=document.createElement("div");
+var dvBdy=document.createElement("div");
+var windowlock,boxMove,fixposx,fixposy,lockX,lockY,fixx,fixy,ox,oy,boxLeft,boxRight,boxTop,boxBottom,evt,mouseX,mouseY,boxOpen,totalScrollTop,totalScrollLeft;
+var CSE,iterElem,LSE,CBE,LBE, width, height,iElem,bodyScrollTop,bodyScrollLeft,cSrc,ah,ab;
+var ini=false;
+var keyword_definitions = [];
+var ID=null;
+var COL=0;
+var stopfade=false;
+
+// iframe used to cover select boxes to fix IE 6 bug
+var tooltip_iframe = document.createElement("iframe");
+
+boxOpen=false;
+ox=10;
+oy=10;
+lockX=0;
+lockY=0;
+
+function init() {
+	oDv.appendChild(dvHdr);
+	oDv.appendChild(dvBdy);
+	oDv.style.position="absolute";
+	oDv.style.visibility='hidden';
+	oDv.style.zIndex='9999';
+	document.body.appendChild(oDv);
+
+
+	// Create the iframe that is used to cover select boxes due to bug in IE6
+	tooltip_iframe.style.position = 'absolute';
+	tooltip_iframe.style.border = 'none';
+	tooltip_iframe.style.zIndex = (oDv.style.zIndex-1)+'';
+	tooltip_iframe.style.filter = 'alpha(opacity=0)';
+	tooltip_iframe.style.display = 'none';
+	// Setting a small width and height prevents an odd effect created from first showing the iframe with a default size and shrinking it
+	tooltip_iframe.style.width = '1px';
+	tooltip_iframe.style.height = '1px';
+	// Required IE6 over https - Setting a src is required to prevent IE6 from displaying an error saying that you have insecure items on your secure page
+	tooltip_iframe.src = 'javascript:false;';
+
+	// We never attach the iframe to the page unless it needs it. IE6 is the only browser that has the bug. Other code will continue to modify the iframe element but it will never be attached.
+	if (document.all && ie_version() === 6)
+	{
+		document.body.appendChild(tooltip_iframe);
+	}
+}
+
+function defHdrStyle() {
+	dvHdr.style.fontWeight='bold';
+	//dvHdr.style.width='200px';
+	dvHdr.style.fontFamily='arial';
+	dvHdr.style.border='1px solid #0066CC';
+	dvHdr.style.padding='3px';
+	dvHdr.style.fontSize='10pt';
+	dvHdr.style.color='#0066CC';
+	dvHdr.style.background='#F5FAFF';
+	dvHdr.style.filter='alpha(opacity=90)'; // IE
+	dvHdr.style.opacity='0.90'; // FF
+
+	//rounded corners
+	style = dvHdr.getAttribute("style");
+	style += "-moz-border-radius: .75em .75em 0em 0em;"; //FF
+	style += "-webkit-border-radius: .75em .75em 0em 0em;"; //Safari
+	style += "-border-radius: .75em .75em 0em 0em;"; //CSS3
+	style += "-moz-box-shadow: hsla(0,0%,0%,0.3) 7px 5px 5px;";
+	dvHdr.setAttribute("style", style);
+}
+
+function defBdyStyle(noHdr) {
+
+	//dvBdy.style.borderBottom='1px solid #9FA1AE';
+	//dvBdy.style.borderLeft='1px solid #9FA1AE';
+	//dvBdy.style.borderRight='1px solid #9FA1AE';
+	dvBdy.style.border='1px solid #9FA1AE';
+	//dvBdy.style.width='200px';
+	dvBdy.style.fontFamily='arial';
+	dvBdy.style.fontSize='10pt';
+	dvBdy.style.padding='4px';
+	dvBdy.style.color='#000000';
+	dvBdy.style.background='#FFFFFF';
+	dvBdy.style.filter='alpha(opacity=90)'; // IE
+	dvBdy.style.opacity='0.90'; // FF
+
+	//rounded corners
+	style = dvBdy.getAttribute("style");
+	if (noHdr)
+	{
+		style += "-moz-border-radius: .75em .75em .75em .75em;"; //FF
+		style += "-webkit-border-radius: .75em .75em .75em .75em;"; //Safari
+		style += "-border-radius: .75em .75em .75em .75em;"; //CSS3
+
+
+	}
+	else
+	{
+		style += "-moz-border-radius: 0em 0em .75em .75em;"; //FF
+		style += "-webkit-border-radius: 0em 0em .75em .75em;"; //Safari
+		style += "-border-radius: 0em 0em .75em .75em;"; //CSS3
+		style += "-moz-box-shadow: hsla(0,0%,0%,0.3) 7px 5px 5px;";
+		style += "-webkit-box-shadow: black 10px 5px 5px;";
+	}
+	dvBdy.setAttribute("style", style);
+}
+
+function checkElemBO(txt) {
+	if (!txt || typeof(txt) != 'string')
+	{
+		return false;
+	}
+	if ((txt.indexOf('header')>-1)&&(txt.indexOf('body')>-1)&&(txt.indexOf('[')>-1)&&(txt.indexOf('[')>-1))
+	{
+	   return true;
+	}
+	else
+	{
+	   return false;
+	}
+}
+
+
+
+function get_keyword_definition_callback(req)
+{
+	var response = req.responseXML.documentElement;
+	var keyword = response.getElementsByTagName('keyword')[0].firstChild.data;
+	dvBdy.innerHTML = response.getElementsByTagName('body')[0].firstChild.data;
+
+	keyword_definitions[keyword] = dvBdy.innerHTML;
+}
+
+function getParam(param,list) {
+	var reg = new RegExp('([^a-zA-Z]' + param + '|^' + param + ')\\s*=\\s*\\[\\s*(((\\[\\[)|(\\]\\])|([^\\]\\[]))*)\\s*\\]');
+	var res = reg.exec(list);
+	var returnvar;
+	if(res)
+	{
+		return res[2].replace(/\[\[/g,'[').replace(/\]\]/g,']');
+	}
+	else
+	{
+		return '';
+	}
+}
+
+function scanBO(curNode) {
+	if (checkElemBO(curNode.title))
+	{
+		curNode.boHDR=getParam('header',curNode.title);
+		curNode.boBDY=getParam('body',curNode.title);
+
+		curNode.js_var=getParam('js_var',curNode.title);
+
+  		if (curNode.js_var !== '')
+  		{
+  			curNode.boBDY = eval(curNode.js_var);
+  		}
+
+  		curNode.keyword_call = getParam('keyword_call', curNode.title);
+
+  		if (curNode.keyword_call=='on')
+  		{
+  			if (!keyword_definitions[curNode.boBDY])
+  			{
+	  			var params = "keyword=" + curNode.boBDY;
+				var url = "/scripts/keyword_definition.php";
+				ajax_call(params, url, 'post', 'get_keyword_definition_callback');
+  			}
+  			else
+  			{
+  				dvBdy.innerHTML = keyword_definitions[curNode.boBDY];
+  			}
+  		}
+
+		curNode.container_width=getParam('width',curNode.title);
+
+		curNode.boCSSBDY=getParam('cssbody',curNode.title);
+		curNode.boCSSHDR=getParam('cssheader',curNode.title);
+		// We no longer hide selects. We use an iframe to cover them
+		//curNode.IEbugfix=(getParam('hideselects',curNode.title)=='on')?true:false;
+
+
+		curNode.fixX=parseInt(getParam('fixedrelx',curNode.title),10);
+		curNode.fixY=parseInt(getParam('fixedrely',curNode.title),10);
+		curNode.absX=parseInt(getParam('fixedabsx',curNode.title),10);
+		curNode.absY=parseInt(getParam('fixedabsy',curNode.title),10);
+		curNode.offY=(getParam('offsety',curNode.title)!=='')?parseInt(getParam('offsety',curNode.title),10):15;
+		curNode.offX=(getParam('offsetx',curNode.title)!=='')?parseInt(getParam('offsetx',curNode.title),10):15;
+		curNode.fade=(getParam('fade',curNode.title)==='on')?true:false;
+		curNode.fadespeed=(getParam('fadespeed',curNode.title)!=='')?getParam('fadespeed',curNode.title):0.04;
+		curNode.delay=(getParam('delay',curNode.title)!=='')?parseInt(getParam('delay',curNode.title),10):0;
+
+		// Causes the tooltips to default to making sure they are in the viewable area
+		curNode.windowLock=getParam('windowlock',curNode.title).toLowerCase()==='off'?false:true;
+
+		curNode.title='';
+		curNode.hasbox=1;
+   }
+   else
+   {
+      curNode.hasbox=2;
+   }
+}
+
+function Left(elem)
+{
+	var x=0;
+	/*
+	Removed the caching. This causes the tooltip to show in the wrong place on dynamic pages
+	if (elem.calcLeft)
+	{
+		return elem.calcLeft;
+	}
+	*/
+	var oElem=elem;
+	while(elem)
+	{
+		 if ((elem.currentStyle)&& (!isNaN(parseInt(elem.currentStyle.borderLeftWidth,10)))&&(x!==0))
+		 {
+		 	x+=parseInt(elem.currentStyle.borderLeftWidth,10);
+		 }
+		 x+=elem.offsetLeft;
+		 elem=elem.offsetParent;
+	  }
+	//oElem.calcLeft=x;
+	return x;
+}
+
+function Top(elem)
+{
+	 var x=0;
+	 /*
+	 Removed the caching. This causes the tooltip to show in the wrong place on dynamic pages
+	 if (elem.calcTop)
+	 {
+	 	return elem.calcTop;
+	 }
+	 */
+	 var oElem=elem;
+	 while(elem)
+	 {
+	 	 if ((elem.currentStyle)&& (!isNaN(parseInt(elem.currentStyle.borderTopWidth,10)))&&(x!==0))
+	 	 {
+		 	x+=parseInt(elem.currentStyle.borderTopWidth,10);
+	 	 }
+		 x+=elem.offsetTop;
+	     elem=elem.offsetParent;
+ 	 }
+ 	 //oElem.calcTop=x;
+ 	 return x;
+}
+
+
+function applyStyles() {
+	if(ab)
+	{
+		oDv.removeChild(dvBdy);
+	}
+	if (ah)
+	{
+		oDv.removeChild(dvHdr);
+	}
+	dvHdr=document.createElement("div");
+	dvBdy=document.createElement("div");
+	if (CBE.boCSSBDY)
+	{
+		dvBdy.className=CBE.boCSSBDY;
+	}
+	else
+	{
+		defBdyStyle(false); //this may be changed later from a static false
+	}
+
+	if (CBE.boCSSHDR)
+	{
+		dvHdr.className=CBE.boCSSHDR;
+	}
+	else
+	{
+		defHdrStyle();
+	}
+	dvHdr.innerHTML=CBE.boHDR;
+	dvBdy.innerHTML=CBE.boBDY;
+	if (!keyword_definitions[CBE.boBDY])
+	{
+		dvBdy.innerHTML=CBE.boBDY;
+	}
+	else
+	{
+		dvBdy.innerHTML=keyword_definitions[CBE.boBDY];
+	}
+	ah=false;
+	ab=false;
+	if (CBE.boHDR!=='')
+	{
+		oDv.appendChild(dvHdr);
+		ah=true;
+	}
+	if (CBE.boBDY!=='')
+	{
+		oDv.appendChild(dvBdy);
+		ab=true;
+	}
+
+	if (parseInt(CBE.container_width,10) > 0)
+	{
+		dvBdy.style.width = CBE.container_width+'px';
+	}
+	else if (dvBdy.innerHTML.length > 50)
+	{
+		dvBdy.style.width = '300px';
+		//added next line because body was wrapping but header wasn't for long (>50 char) bodies--RLS 01/15/10
+		dvHdr.style.width = '300px';
+	}
+
+	// Added to set the iframe to hide selet boxes in IE6
+	tooltip_iframe.style.width = oDv.offsetWidth+'px';
+	tooltip_iframe.style.height = oDv.offsetHeight+'px';
+}
+
+
+
+// Customised function for inner window dimension
+function SHW() {
+   if (document.body && (document.body.clientWidth !==0))
+   {
+      width=document.body.clientWidth;
+      height=document.body.clientHeight;
+   }
+   if (document.documentElement && (document.documentElement.clientWidth!==0) && (document.body.clientWidth + 20 >= document.documentElement.clientWidth))
+   {
+      width=document.documentElement.clientWidth;
+      height=document.documentElement.clientHeight;
+   }
+   return [width,height];
+}
+
+
+
+function isChild(s,d)
+{
+	while(s)
+	{
+		if (s===d)
+		{
+			return true;
+		}
+		s=s.parentNode;
+	}
+	return false;
+}
+
+/*
+We no longer hide selects. We use an iframe to cover them
+function hideSelects()
+{
+	var elements = document.getElementsByTagName("select");
+	for (var i=0;i< elements.length;i++)
+	{
+		elements[i].style.visibility='hidden';
+	}
+}
+*/
+
+function fadeOut()
+{
+	oDv.style.visibility='hidden';
+	tooltip_iframe.style.display = 'none';
+}
+
+function checkMove(e)
+{
+	e?evt=e:evt=event;
+	cSrc=evt.target?evt.target:evt.srcElement;
+	if ((!boxMove)&&(!isChild(cSrc,oDv)))
+	{
+		fadeOut();
+		// We no longer hide selects. We use an iframe to cover them
+		/*
+		if (CBE&&CBE.IEbugfix)
+		{
+			showSelects();
+		}
+		*/
+		boxMove=true;
+		CBE=null;
+	}
+}
+
+// We no longer hide selects. We use an iframe to cover them
+/*
+function showSelects()
+{
+	var elements = document.getElementsByTagName("select");
+	for (var i=0;i< elements.length;i++)
+	{
+		elements[i].style.visibility='visible';
+	}
+}
+*/
+
+function doCheck()
+{
+	if (   (mouseX < boxLeft)    ||     (mouseX >boxRight)     || (mouseY < boxTop) || (mouseY > boxBottom))
+	{
+		if (!CBE.requireclick)
+		{
+			fadeOut();
+		}
+		// We no longer hide selects. We use an iframe to cover them
+		/*
+		if (CBE.IEbugfix)
+		{
+			showSelects();
+		}
+		*/
+		CBE=null;
+	}
+}
+
+function moveMouse(e)
+{
+	if (e)
+	{
+		evt=e;
+	}
+	else
+	{
+		evt=event;
+	}
+
+	if (evt.target)
+	{
+		CSE=evt.target;
+	}
+	else
+	{
+		CSE=evt.srcElement;
+	}
+
+	if (!CSE.hasbox)
+	{
+	   // Note we need to scan up DOM here, some elements like TR don't get triggered as srcElement
+	   iElem=CSE;
+	   while ((iElem.parentNode) && (!iElem.hasbox))
+	   {
+	      scanBO(iElem);
+	      iElem=iElem.parentNode;
+	   }
+	}
+
+	if ((CSE!=LSE)&&(!isChild(CSE,dvHdr))&&(!isChild(CSE,dvBdy)))
+	{
+	   if (!CSE.boxItem)
+	   {
+			iterElem=CSE;
+			while ((iterElem.hasbox===2)&&(iterElem.parentNode))
+			{
+					iterElem=iterElem.parentNode;
+			}
+			CSE.boxItem=iterElem;
+		}
+		iterElem=CSE.boxItem;
+		if (CSE.boxItem&&(CSE.boxItem.hasbox===1))
+		{
+			LBE=CBE;
+			CBE=iterElem;
+			if (CBE!=LBE)
+			{
+				applyStyles();
+				if (!CBE.requireclick)
+				{
+					/*
+					Not doing fades
+					if (CBE.fade)
+					{
+						if (ID!==null)
+						{
+							clearTimeout(ID);
+						}
+						ID=setTimeout("fadeIn("+CBE.fadespeed+")",CBE.delay);
+					}
+					else
+					{
+					*/
+						if (ID!==null)
+						{
+							clearTimeout(ID);
+						}
+						COL=1;
+						ID=setTimeout("oDv.style.visibility='visible';ID=null;tooltip_iframe.style.display=''",CBE.delay);
+					//}
+				}
+				// We no longer hide selects. We use an iframe to cover them
+				/*
+				if (CBE.IEbugfix)
+				{
+					hideSelects();
+				}
+				*/
+				fixposx=!isNaN(CBE.fixX)?Left(CBE)+CBE.fixX:CBE.absX;
+				fixposy=!isNaN(CBE.fixY)?Top(CBE)+CBE.fixY:CBE.absY;
+				lockX=0;
+				lockY=0;
+				boxMove=true;
+				ox=CBE.offX?CBE.offX:10;
+				oy=CBE.offY?CBE.offY:10;
+			}
+		}
+		else if (!isChild(CSE,dvHdr) && !isChild(CSE,dvBdy) && (boxMove))
+		{
+			// The conditional here fixes flickering between tables cells.
+			if ((!isChild(CBE,CSE)) || (CSE.tagName!=='TABLE'))
+			{
+   				CBE=null;
+	   			if (ID!==null)
+	   			{
+	  				clearTimeout(ID);
+	   			}
+	   			fadeOut();
+	   			//showSelects();
+			}
+		}
+		LSE=CSE;
+	}
+	else if (((isChild(CSE,dvHdr) || isChild(CSE,dvBdy))&&(boxMove)))
+	{
+		totalScrollLeft=0;
+		totalScrollTop=0;
+
+		iterElem=CSE;
+		while(iterElem)
+		{
+			if(!isNaN(parseInt(iterElem.scrollTop,10)))
+			{
+				totalScrollTop+=parseInt(iterElem.scrollTop,10);
+			}
+			if(!isNaN(parseInt(iterElem.scrollLeft,10)))
+			{
+				totalScrollLeft+=parseInt(iterElem.scrollLeft,10);
+			}
+			iterElem=iterElem.parentNode;
+		}
+		if (CBE!==null)
+		{
+			boxLeft=Left(CBE)-totalScrollLeft;
+			boxRight=parseInt(Left(CBE)+CBE.offsetWidth,10)-totalScrollLeft;
+			boxTop=Top(CBE)-totalScrollTop;
+			boxBottom=parseInt(Top(CBE)+CBE.offsetHeight,10)-totalScrollTop;
+			doCheck();
+		}
+	}
+
+	if (boxMove&&CBE)
+	{
+		// This added to alleviate bug in IE6 w.r.t DOCTYPE
+		bodyScrollTop=document.documentElement&&document.documentElement.scrollTop?document.documentElement.scrollTop:document.body.scrollTop;
+		bodyScrollLeft=document.documentElement&&document.documentElement.scrollLeft?document.documentElement.scrollLeft:document.body.scrollLeft;
+		mouseX=evt.pageX?evt.pageX-bodyScrollLeft:evt.clientX-document.body.clientLeft;
+		mouseY=evt.pageY?evt.pageY-bodyScrollTop:evt.clientY-document.body.clientTop;
+		if ((CBE)&&(CBE.windowLock))
+		{
+			mouseY < -oy?lockY=-mouseY-oy:lockY=0;
+			mouseX < -ox?lockX=-mouseX-ox:lockX=0;
+			mouseY > (SHW()[1]-oDv.offsetHeight-oy)?lockY=-mouseY+SHW()[1]-oDv.offsetHeight-oy:lockY=lockY;
+			mouseX > (SHW()[0]-dvBdy.offsetWidth-ox)?lockX=-mouseX-ox+SHW()[0]-dvBdy.offsetWidth:lockX=lockX;
+		}
+		oDv.style.left=((fixposx)||(fixposx===0))?fixposx:bodyScrollLeft+mouseX+ox+lockX+"px";
+		oDv.style.top=((fixposy)||(fixposy===0))?fixposy:bodyScrollTop+mouseY+oy+lockY+"px";
+
+		tooltip_iframe.style.left = oDv.style.left;
+		tooltip_iframe.style.top = oDv.style.top;
+	}
+}
+
+/*
+This appears to only be used to show tooltips onclick
+function pauseBox(e)
+{
+	if (e)
+	{
+		evt=e;
+	}
+	else
+	{
+		evt=event;
+	}
+	boxMove=false;
+	evt.cancelBubble=true;
+}
+*/
+
+/*
+This appears to only be used to show tooltips onclick
+function showHideBox(e)
+{
+	oDv.style.visibility=(oDv.style.visibility!='visible')?'visible':'hidden';
+	tooltip_iframe.style.display=(tooltip_iframe.style.display!='')?'':'none';
+}
+
+function hideBox(e)
+{
+	oDv.style.visibility='hidden';
+	tooltip_iframe.style.display='none';
+}
+*/
+
+/*
+Not doing fades
+function fadeIn2(fs)
+{
+	COL=COL+fs;
+	COL=(COL>1)?1:COL;
+	oDv.style.filter='alpha(opacity='+parseInt(100*COL,10)+')';
+	oDv.style.opacity=COL;
+	if (COL<1)
+	{
+		setTimeout("fadeIn2("+fs+")",20);
+	}
+}
+
+function fadeIn(fs)
+{
+	ID=null;
+	COL=0;
+	oDv.style.visibility='visible';
+	fadeIn2(fs);
+
+	tooltip_iframe.style.display='';
+}
+*/
+
+/* Ported from wish_list.js */
+function wr_list_callback(req)
+{
+	var msg = "There was an error processing the request.\n\nPlease refresh and try again.";
+
+	if (req.responseXML.documentElement)
+	{
+		var response = req.responseXML.documentElement;
+		if (response.getElementsByTagName('msg'))
+		{
+			msg = response.getElementsByTagName('msg')[0].firstChild.data;
+		}
+	}
+
+	alert(msg);
+}
+
+/* ---end--- */
+
+/* Ported from browse_general.js */
+function show_pop(type,isbn)
+{
+	var height = 0;
+
+	if (parseInt(navigator.appVersion)>3)
+	{
+		if (navigator.appName=="Netscape")
+		{
+			//Non IE
+			height = window.innerHeight;
+		}
+		else if( document.documentElement &&( document.documentElement.clientWidth || document.documentElement.clientHeight ))
+		{
+			//IE 6+ in 'standards compliant mode'
+			height = document.documentElement.clientHeight;
+	  	}
+	  	else if( document.body && ( document.body.clientWidth || document.body.clientHeight ) )
+	  	{
+			//IE 4 compatible
+			height = document.body.clientHeight;
+		}
+	}
+
+	document.getElementById('email_div').style.zIndex = 10;
+	document.getElementById('email_div').style.position = 'absolute';
+
+	if (parseInt(height)>0)
+	{
+		y_pos = height / 2;
+		y_pos = y_pos - 120;
+
+		document.getElementById('email_div').style.top = y_pos+'px';
+	}
+
+	get_email_book_info(isbn);
+}
+
+function show_pop2(clubname)
+{
+	var height = 0;
+
+	if (parseInt(navigator.appVersion)>3)
+	{
+		if (navigator.appName=="Netscape")
+		{
+			//Non IE
+			height = window.innerHeight;
+		}
+		else if( document.documentElement &&( document.documentElement.clientWidth || document.documentElement.clientHeight ))
+		{
+			//IE 6+ in 'standards compliant mode'
+			height = document.documentElement.clientHeight;
+	  	}
+	  	else if( document.body && ( document.body.clientWidth || document.body.clientHeight ) )
+	  	{
+			//IE 4 compatible
+			height = document.body.clientHeight;
+		}
+	}
+
+	if (parseInt(height)>0)
+	{
+		y_pos = height / 2;
+		y_pos = y_pos - 120;
+
+		document.getElementById('email_div').style.top = y_pos+'px';
+	}
+
+	get_email_club_info(clubname);
+}
+
+function get_email_book_info(isbn)
+{
+	return;
+	
+	var url = "/scripts/email_book_info.php";
+	var params = 'isbn=' + isbn;
+	ajax_call(params, url, 'post', 'get_email_book_info_callback');
+}
+
+function get_email_club_info(clubname)
+{
+	return;
+	
+	var url = "/scripts/email_club_info.php";
+	var params = 'clubname=' + clubname;
+	ajax_call(params, url, 'post', 'get_email_club_info_callback');
+}
+
+function get_email_book_info_callback(req)
+{
+	return;
+	
+	var response = req.responseXML.documentElement;
+	var data = response.getElementsByTagName('data')[0].firstChild.data;
+
+	document.getElementById('email_message').value = data;
+	document.getElementById('email_div').style.display = "";
+}
+
+function get_email_club_info_callback(req)
+{
+	return;
+	
+	var response  = req.responseXML.documentElement;
+	var data = response.getElementsByTagName('data')[0].firstChild.data;
+
+	document.getElementById('email_body').value = data;
+	document.getElementById('email_div').style.display = "";
+}
+
+function email_book_to_friend()
+{
+	return;
+	
+	if (document.getElementById('email_to').value!='')
+	{
+		email_book(document.getElementById('email_to').value, document.getElementById('email_message').value);
+		document.getElementById('email_message').value = '';
+		document.getElementById('email_div').style.display = "none";
+	}
+	else
+	{
+		alert("Please provide your friend's email address!");
+	}
+}
+
+function email_book(e,b)
+{
+	return;
+	
+	var eml_to = (!e) ? document.getElementById('email_to').value : e;
+	var bdy = (!b) ? document.getElementById('email_body').value : b;
+	var url = "/scripts/email_club_info.php";
+	var params = "email_to=" + eml_to + "&email_body="+ url_encode(bdy);
+	ajax_call(params, url, 'post');
+
+	alert("The email has been sent to your friend");
+}
+
+function email_club_to_friend()
+{
+	return;
+	
+	if (document.getElementById('email_to').value!='')
+	{
+		email_about_club(document.getElementById('email_to').value, document.getElementById('email_body').value, 'I have found a PBS Book Club that I think you would enjoy');
+		document.getElementById('email_body').value = '';
+		document.getElementById('email_div').style.display = "none";
+	}
+	else
+	{
+		alert("Please provide your friend's email address!");
+	}
+}
+
+function email_broadcast(clubname)
+{
+	return;
+	
+	if (document.getElementById('email_to').value!='')
+	{
+		email_club(document.getElementById('email_to').value, document.getElementById('email_body').value, document.getElementById('email_subject').value + ' (' + clubname + ')');
+		document.getElementById('email_body').value = '';
+		document.getElementById('email_subject').value = '';
+		document.getElementById('email_div').style.display = "none";
+	}
+}
+
+function confirm_book_isbn(isbn_13, isbn_10)
+{
+	var answer = confirm('If your book does not have one of these ISBNs, please post your book from the Post Books page.\n\nISBN-13: '+isbn_13+'\nISBN-10: '+isbn_10);
+	if (answer)
+	{
+		self.location.href='https://www.paperbackswap.com/members/book_add.php?isbn='+isbn_13;
+	}
+}
+
+/* ---end--- */
+
+/* Ported from member_book_review.js */
+function write_review(id)
+{
+	self.location.href = "https://www.paperbackswap.com/book/review.php?isbn=" + id + "&rurl=" + get_rurl();
+}
+
+function write_review_callback(req, id)
+{
+	var response = req.responseXML.documentElement;
+	var html_return = response.getElementsByTagName('html_return')[0].firstChild.data;
+	var scroll_top = get_scroll_top();
+	var review_div = null;
+	var height = 0;
+
+	if (navigator.appName=="Netscape")
+	{
+		height = window.innerHeight;
+	}
+	else if( document.documentElement &&( document.documentElement.clientWidth || document.documentElement.clientHeight ))
+	{
+		height = document.documentElement.clientHeight;
+  	}
+  	else if( document.body && ( document.body.clientWidth || document.body.clientHeight ) )
+  	{
+		height = document.body.clientHeight;
+	}
+
+	if (!document.getElementById('review_pop_div'))
+	{
+		review_div = document.createElement("div");
+		document.body.appendChild(review_div);
+
+		review_div.id = "review_pop_div";
+		review_div.style.position = 'absolute';
+		review_div.style.width = '100%';
+		review_div.style.zIndex = '51';
+	}
+	else
+	{
+		review_div = document.getElementById('review_pop_div');
+		review_div.style.display = '';
+	}
+
+	review_div.style.top = (((height/2))-170+scroll_top)+'px';
+
+	review_div.innerHTML = html_return;
+}
+
+function save_book_review()
+{
+	var url = "/scripts/member_book_reviews.php";
+	var params = new Array();
+	params['save_review'] = "true";
+	params['review'] = document.getElementById('review_pop_text').value;
+	params['isbn'] = document.getElementById('review_pop_isbn').value;
+	ajax_call(params, url, 'post', 'save_book_review_callback');
+}
+
+function save_book_review_callback(req)
+{
+	var response = req.responseXML.documentElement;
+	var id = response.getElementsByTagName('id')[0].firstChild.data;
+	close_review_pop_div(id);
+}
+
+function close_review_pop_div(id)
+{
+	if (document.getElementById(id))
+	{
+		document.getElementById(id).style.display = 'none';
+	}
+}
+
+function delete_book_review(isbn)
+{
+	var deleteConfirmed = confirm("Are you sure you want to delete this review? This cannot be undone.");
+	if (deleteConfirmed)
+	{
+		var url = "/scripts/member_book_reviews.php";
+		var params = new Array();
+		params['save_review'] = "true";
+		params['review'] = '';
+		params['isbn'] = isbn;
+		ajax_call(params, url, 'post', 'delete_book_review_callback');
+	}
+}
+
+function delete_book_review_callback(req)
+{
+	location.reload(true);
+}
+
+/* ---end--- */
+
+/* Loads JS and CSS files dynamically--from http://www.javascriptkit.com/javatutors/loadjavascriptcss.shtml */
+
+function loadjscssfile(filename, filetype)
+{
+	var headID = document.getElementsByTagName("head")[0];
+
+	if (filetype=="js")
+	{ //if filename is a external JavaScript file
+		var fileref=document.createElement('script');
+		fileref.setAttribute("type","text/javascript");
+		fileref.setAttribute("src", filename);
+	}
+	else if (filetype=="css")
+	{ //if filename is an external CSS file
+		var fileref=document.createElement("link");
+		fileref.setAttribute("rel", "stylesheet");
+		fileref.setAttribute("type", "text/css");
+		fileref.setAttribute("href", filename);
+	}
+	if (typeof fileref!="undefined")
+	{
+		headID.appendChild(fileref);
+	}
+}
+
+function window_fade(id, control_id)
+{
+	if ($('#' + control_id).length)
+	{
+		window_fade(control_id);
+	}
+
+	if (!$('#' + id).length)
+	{
+		return false;
+	}
+	else if ($('#' + id).is(":hidden"))
+	{
+		$('#' + id).fadeIn("slow");
+	}
+	else
+	{
+		$('#' + id).hide();
+	}
+}
+
+function modal_activate(loading_msg) {
+	if(typeof loading_msg !== "undefined")
+		$("#loading_msg").html(loading_msg);
+	$(".modal").dialog({dialogClass: "no-close"});
+}
+
+/* send a Google Analytics event to aid in tracking actions that normal G.A. code doesn't capture */
+function send_ga_event(category, label) 
+{
+	  ga('send', 'event', {
+	    eventCategory: category,
+	    eventAction: 'click',
+	    eventLabel: label,
+	    transport: 'beacon'
+	  });
+	//console.log(category);
+	//console.log(label);
+	  return true;
+}

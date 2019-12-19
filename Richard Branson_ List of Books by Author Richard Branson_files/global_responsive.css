@@ -1,0 +1,140 @@
+@CHARSET "ISO-8859-1";
+
+@media only screen and (min-width: 991px) {
+	#page_header_small {
+		display:none;
+	}
+}
+@media only screen and (max-width: 990px) {
+	#page_header_classic {
+		display:none;
+	}
+}
+
+#page_header_classic {
+	height: 130px;
+	width: 970px;
+	position: relative;
+	z-index: 1;
+}
+
+#page_header_small {
+	width: 100%;
+	min-width:360px;
+	/* height: 64px; */
+	position: relative;
+	margin-top: 0;
+	margin-bottom:20px;
+	
+	background-color:#e3f0ff;
+	background: linear-gradient(#effdff, #e3f0ff);
+	
+	border-bottom:1px solid lightgray;
+
+	-webkit-box-shadow: 0px 10px 7px 0px rgba(0,0,0,0.04);
+	-moz-box-shadow: 0px 10px 7px 0px rgba(0,0,0,0.04);
+	box-shadow: 0px 10px 7px 0px rgba(0,0,0,0.04);
+}
+
+#pbs_nav_mbl {
+	display:none;
+	text-align:center;
+	width:100%;
+}
+
+#pbs_nav_mbl a {
+	display:block;
+	font-size:20px;
+	/* line-height:32px; */
+	background-color:#0066CC;
+	color:white;
+	/*border-top:1px solid #e3f0ff;*/
+	border-top:1px solid #0088EE;
+	border-bottom:1px solid #0055BB;
+}
+
+#page_header_small nav a:hover {
+	text-decoration:none;
+	background-color:#e3f0ff;
+	color:#0066CC;
+}
+
+#pbs_logo_mbl {
+	vertical-align:top;
+	top:12px;
+	margin-top:6px;
+}
+
+#page_container_responsive {
+	/* Allows for the absolute positioning of elements within the page deminsions */
+	position: relative;
+	top: 0px;
+	margin: 0 auto;
+	/*width: 990px;*/
+	width:100%; max-width: 990px;
+	padding:0;
+	margin-bottom:10px;
+}
+
+#pbs_srch_mbl {
+	font-size:24px;
+	width:50%;
+	height:30px;
+	position:absolute;
+	right:96px;
+	top:16px;
+	border:1px solid #BBBBCC;
+	border-top-left-radius:6px;
+	border-bottom-left-radius:6px; 
+	line-height:32px;
+	padding-left:6px;
+}
+
+#pbs_srch_btn_mbl {
+	position:absolute;
+	right:64px;top:16px;
+	width:32px;height:32px;
+	background-image:url('/images/icons/header-search1.PNG');
+	background-repeat:no-repeat;
+	background-position: center center;
+	border:1px solid #BBBBCC;
+	border-top-right-radius:6px;
+	border-bottom-right-radius:6px;
+	background-color:lightgray;
+}
+
+
+@media only screen and (max-width: 990px) {
+	.only_cl_sz {
+		display:none;
+	}
+}
+
+@media only screen and (min-width: 991px) {
+	.only_sm_sz {
+		display:none;
+	}
+}
+
+@media (max-width: 511px) {
+	.only_sm_sz {
+    	display: none;
+  	}
+}
+
+@media (min-width: 512px) {
+  .only_tn_sz {
+    display: none;
+  }
+}
+
+.pbs_center {
+	margin-left:auto;
+	margin-right:auto;
+	position:relative;
+	align:center;
+}
+
+.clickable {
+	cursor:pointer;
+}

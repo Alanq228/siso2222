@@ -1,0 +1,453 @@
+
+/* 
+ * Copied this browser detection code from Yahoo UI Env.js
+ *
+ * Removed all of the yahoo code that did detect exactly which browser and
+ * version were used. Reduced it to just check for IE so because that is all I
+ * needed at the time.
+ *
+ * Do not fork for a browser if it can be avoided. Use feature detection when
+ * you can. Use the user agent as a last resort. YAHOO.env.ua stores a version
+ * number for the browser engine, 0 otherwise. This value may or may not map to
+ * the version number of the browser using the engine. The value is presented as
+ * a float so that it can easily be used for boolean evaluation as well as for
+ * looking for a particular range of versions. Because of this, some of the
+ * granularity of the version info may be lost (e.g., Gecko 1.8.0.9 reports
+ * 1.8).
+ *
+ * @class YAHOO.env.ua
+ * @static
+ * 
+ * testing minify
+ */
+var ie_version = function()
+{
+	var version = 0;
+	var user_agent = navigator.userAgent;
+	var match;
+
+	match = user_agent.match(/MSIE\s([^;]*)/);
+	if (match && match[1])
+	{
+		version = parseFloat(match[1]);
+	}
+
+	return version;
+};
+
+// Basic UA detection
+isIE = document.all ? true : false;
+isGecko = navigator.userAgent.toLowerCase().indexOf('gecko') != -1;
+isOpera = navigator.userAgent.toLowerCase().indexOf('opera') != -1;
+is_safari = navigator.userAgent.toLowerCase().indexOf('safari') != -1;
+is_safari_2 = false;
+is_safari_3 = false;
+
+if (is_safari)
+{
+	is_safari_2 = navigator.userAgent.toLowerCase().indexOf('version/2') != -1;
+	is_safari_3 = navigator.userAgent.toLowerCase().indexOf('version/3') != -1;
+}
+
+var generic_overlay_has_been_called = false;
+
+function reset_generic_overlay_status()
+{
+	generic_overlay_has_been_called = false;
+}
+
+/**
+ * New adapation of this function which is more friendly
+ * to browsers with native XMLHttpRequest() based on
+ * "Ajax patterns and best practices"
+ * by Christian Gross
+ * Made this change because ~90% of our vistors' browsers
+ * support the native method now.
+ * JD 07/05/09
+ */
+function createXMLHttpRequest()
+{
+	//Native method recommedned and supported by Mozilla, WebKit (Safari/Chrome), Opera, and IE >= 7
+	if(window.XMLHttpRequest)
+	{
+		return new XMLHttpRequest();
+	}
+	else
+	{
+		/* Microsoft's recommended approach for IE versions < 7
+		 * http://msdn.microsoft.com/en-us/library/ms535874(VS.85).aspx
+		 */
+		try { return new ActiveXObject("MSXML2.XMLHTTP.3.0"); } catch (ie_6) {}
+		//For very, very old versions of Windows/IE (like Win 95/IE 5)
+		try { return new ActiveXObject("Microsoft.XMLHTTP"); } catch (ie_5) {}
+	}
+	return false;
+}
+
+function ajax_call(params, url, http_type, callback_function, callback_error_function, background_call, callback_vars)
+{
+	var param_string = '';
+
+	if (typeof(params)=="object")
+	{
+		for (var i in params)
+		{
+			param_string = param_string+'&'+i+'='+encodeURIComponent(params[i]);
+		}
+	}
+	else
+	{
+		// old way was to send params as a string
+		param_string = params;
+	}
+
+	var req = createXMLHttpRequest();
+	if (req === false)
+	{
+		alert("You need to upgrade your browser to use this feature.");
+		return false;
+	}
+
+	/*
+	There was originally supposed to be a timeout command here, but it was incorrectly implemented and now we're scared
+	to put in one that actually does something.  Instead, Zach and I have decided to enshrine it in a comment, as it was,
+	forever and ever.  --Jeremy
+	var requestTimer = setTimeout("req.abort();", 30000);
+	*/
+
+	req.onreadystatechange = function () {
+		if (req.readyState == 4)
+		{
+			//clearTimeout(requestTimer);
+			if (req.status == 200 || !req.status)
+			{
+				// If they are requried to be logged in a special text line will be sent back to let us know.
+				if (req.responseText=='login required')
+				{
+					var lr=confirm('You must be logged in to perform this action. This may be a result of staying on one page too long.');
+					if(lr==true)
+					{
+						window.location = "/members/login.php";
+						return;
+					}
+					else
+					{
+						return;
+					}
+				}
+				if (typeof(callback_function) != "undefined")
+				{
+					error_tracking_call_func(callback_function, [req, callback_vars], ajax_call_error_catcher, {'url':url, 'params':params});
+				}
+			}
+			else
+			{
+				if (!background_call)
+				{
+					//no need to throw an error to user as there is nothing they can do anyways
+					// alert("There was an error processing your request");
+				}
+				if (callback_error_function)
+				{
+					if (callback_vars)
+					{
+						eval(callback_error_function+'(req,callback_vars);');
+					}
+					else
+					{
+						eval(callback_error_function+'(req);');
+					}
+				}
+			}
+		}
+	};
+
+	if (http_type == 'get')
+	{
+		req.open("GET", url+"?"+param_string, true);
+	}
+	else
+	{
+		req.open("POST", url, true);
+	}
+
+	if (http_type == 'get')
+	{
+		req.send(null);
+	}
+	else
+	{
+		req.setRequestHeader("Content-Type","application/x-www-form-urlencoded; charset=UTF-8");
+		req.send(param_string);
+	}
+
+	return true;
+}
+
+function check_member_login()
+{
+	if (user_logged_in)
+	{
+		return true;
+	}
+	else
+	{
+		alert('Please login to access this page or feature.');
+		return false;
+	}
+}
+
+function trim(str)
+{
+   return str.replace(/^\s+|\s+$/g,"");
+}
+
+
+/**
+ * Gets the value of the specified cookie.
+ *
+ * name  Name of the desired cookie.
+ *
+ * Returns a string containing value of specified cookie,
+ *   or null if cookie does not exist.
+ */
+function get_cookie(name)
+{
+	var dc = document.cookie;
+	var prefix = name + "=";
+	var begin = dc.indexOf("; " + prefix);
+	if (begin == -1)
+	{
+		begin = dc.indexOf(prefix);
+		if (begin !== 0)
+		{
+			return null;
+		}
+	}
+	else
+	{
+		begin += 2;
+	}
+	var end = document.cookie.indexOf(";", begin);
+	if (end == -1)
+	{
+		end = dc.length;
+	}
+	return unescape(dc.substring(begin + prefix.length, end));
+}
+
+function set_cookie( name, value, expires, path, domain, secure )
+{
+	// set time, it's in milliseconds
+	var today = new Date();
+	today.setTime( today.getTime() );
+
+	/*
+	 * if the expires variable is set, make the correct expires time, the
+	 * current script below will set it for x number of days, to make it for
+	 * hours, delete * 24, for minutes, delete * 60 * 24
+	 */
+	if ( expires )
+	{
+		expires = expires * 1000 * 60 * 60 * 24;
+	}
+	var expires_date = new Date( today.getTime() + (expires) );
+
+	document.cookie = name + "=" +escape( value ) +
+	( ( expires ) ? ";expires=" + expires_date.toGMTString() : "" ) +
+	( ( path ) ? ";path=" + path : "" ) +
+	( ( domain ) ? ";domain=" + domain : "" ) +
+	( ( secure ) ? ";secure" : "" );
+}
+
+function addEvent(obj, evType, fn){
+	var error_arguments = {"event_type":evType};
+	if(typeof obj.id != "undefined")
+	{
+		error_arguments.element_id = obj.id;
+	}
+	else if (obj === window)
+	{
+		error_arguments.element_id = "window";
+	}
+	else if (obj === document)
+	{
+		error_arguments.element_id = "document";
+	}
+	else {
+		error_arguments.element_id = "Anonymous";
+	}
+	switch(typeof(fn))
+	{
+		case "string":
+			error_arguments.func = fn;
+			break;
+		case "function":
+			if (!fn.name || fn.name === "")
+			{
+				error_arguments.func = "Anonymous";
+			}
+			else
+			{
+				error_arguments.func = fn.name;
+			}
+			break;
+		default:
+			error_arguments.func = "Anonymous";
+			break;
+	}
+	var callback = function(e){
+		error_tracking_call_func(fn, [e], attached_event_error_catcher, error_arguments);
+	};
+
+	if (obj.addEventListener)
+	{
+		obj.addEventListener(evType, callback, false);
+		return true;
+	}
+	else if (obj.attachEvent)
+	{
+		var r = obj.attachEvent("on"+evType, callback);
+		return r;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+function attached_event_error_catcher(msg, page, line, args)
+{
+	if(typeof args == "object")
+	{
+		msg += "\nEvent type: "+args.event_type;
+		msg += "\nElement ID: "+args.element_id;
+	}
+
+	return rich_vanilla_error_handler(msg, page, line, args);
+}
+
+/**
+* Does the opposite of disable_button_closure
+*/
+function enable_button_closure(button){
+	return function () { button.disabled = false; };
+}
+
+/**
+* Disables the button that was passed in, being sensitive to the needs of browsers and the
+* user experience.  If the button has the class "disable_permanently" (and overloading with
+* spaces is fine), then it will be disabled permenantly and occasionally updated.
+*/
+function disable_button(button){
+	/* One version of Safari (312.6) still in use on the site needs the button to be enabled when it tries to run further onclick events.  It gets 1/10 sec to do them*/
+	if (navigator.userAgent.indexOf("Safari") < 0)
+	{
+		button.disabled = true;
+	}
+	else
+	{
+		setTimeout(function(){ button.disabled = true; }, 100);
+	}
+
+	if (button.className.indexOf("disable_permanently") < 0)
+	{
+		setTimeout(enable_button_closure(button), 2000);
+	}
+	else if (button.className.indexOf("retain_value") < 0)
+	{
+		button.value = "Processing..";
+		var append_dots_forever = function(button) {
+			button.value += '.';
+			setTimeout(function() { append_dots_forever(button); }, 1500);
+		};
+		append_dots_forever(button);
+	}
+}
+
+/**
+* Returns a function reference to disableButton that can be used with addEvent to disable
+* the passed-in button.  Its usage looks something like addEvent(button, "click", disable_button_closure(button));
+*/
+function disable_button_closure(button){
+	return function () { disable_button(button); };
+}
+
+/**
+* Disables all buttons on the page
+*
+*/
+function disable_buttons_on_click()
+{
+	var inputs = document.getElementsByTagName("input");
+	var i = 0;
+
+	for (i = 0; i < inputs.length; i++)
+	{
+		if (!inputs[i])
+		{
+			continue;
+		}
+		else if (inputs[i].getAttribute("type") == "button")
+		{
+			addEvent(inputs[i], "click", disable_button_closure(inputs[i]));
+		}
+	}
+}
+
+/**
+ * For use with a form submission.  Removes all empty values when passing GET parameters. If POST, simply submits the form as usual.
+ * (Not used as it was causing issues with searches - Joshua Conn 4/17/11)
+ * 
+ * @param form_obj
+ */
+function submit_clean_url(frm)
+{
+	// <!-- Added these comment brackets for when JS is disabled and/or old browsers...this the form will still submit naturally
+	
+	// If the method used is POST, we return true to allow the form to submit naturally b/c this function is then un-needed
+	if (jQuery.inArray($(frm).attr("method"), new Array("get","GET")) === -1)
+	{
+		return true;
+	}
+	
+	var data = $();  // create data as a jQuery object so we can use the push() function with it
+	$.each($(frm).serializeArray(), function () {  // serializeArray() converts the form elements into name=>value pairs			
+		if (typeof(this.value) != 'undefined' && this.value !== '' && this.value !== '0' && this.value !== 0) {  // Check to make sure the form field value is not empty
+			data.push(this);  // Add good and existing name=>value pairs to the data array
+		}		
+	});
+
+	// Redirect to the form's original path with the valid and present data values
+	document.location.href = $(frm).attr("action") + '?' + $.param(data);  // param() serialized the data array back into encoded URL format 
+	
+	return false;   // Return false so that the form does not submit naturally...function should not actually get this far though
+	// -->	
+}
+
+/**
+ * JS/jQuery equivalent to PHP !empty() 
+ * @param object
+ * @returns boolean true || false
+ */
+function not_empty(o)
+{
+	return (o.length > 0 ? true : false);
+}
+
+function js_error_catcher(msg, page, line)
+{
+	if (msg!='Error loading script')
+	{
+		var url = "/scripts/js_error_catcher.php";
+		var params = {'msg': msg, 'url': page, 'line': line, 'statistic_id': statistic_id, 'server': server};
+		$.post(url, params);
+	}
+
+	return false;
+}
+
+// not sure if this needs to be onready bu I had a note before that it needed to be at the end of the file. We also had an if in the error function to make sure page was loaded
+$(function() {
+	window.onerror = js_error_catcher;
+});

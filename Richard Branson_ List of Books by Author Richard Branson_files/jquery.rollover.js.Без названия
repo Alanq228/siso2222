@@ -1,0 +1,361 @@
+/**
+ *  jQuery plugin/class to manage dynamic item rollovers
+ *  @author John Cornett 2011
+ *  
+ *  Template @author Hector Virgen (http://www.virgentech.com/blog/2009/10/building-object-oriented-jquery-plugin.html)
+ */
+(function($) {
+    
+	// GLOBAL PROPERTIES
+    var rollover_container = 'rollover_container';		// Container ID where the rollover resides
+    var rollover_cache = []; 							// Array that keeps cached rollover content      
+    var rollover_object = {}; 			 				// Jquery Object for the rollover itself
+    var trigger_object = {};  							// Jquery Object for which the rollover is currently showing data
+    var rollover_identifier = 0;  						// The item_id (isbn, nbs_id) that is currently being shown in the rollover
+
+    // Plugin for Rollovers attached to in most cases cover images.  Get't HTML via AJAX and renders a callout type box
+	var ItemRollover = function(element, options)
+	{
+        var obj = this;
+        var element = $(element);
+        
+        // These are the default options
+        var defaults = {
+        	classname: 'item_rollover',
+        	links: true,
+        	persist: true,
+        	width: "275px",
+			ajax_url: "/scripts/item_rollover_data.php"
+        };
+        
+        // This jquery function blends any passed options in with the defaults either overriding them or setting them to the default.
+        // All these controls are stored in the config variable
+        var config = $.extend(defaults, options || {});
+
+        /* Public methods and properties can be called/accessed from client code and are initialized as an extension of the parent obj
+        this.publicMethod = function() { console.log('public method called!'); }; */
+
+        /* Private methods and properties can only be called/accessed from within this object and are initialized as local variables as functions
+        var privateMethod = function() { console.log('private method called!'); }; */     
+        
+        // ---------- PUBLIC METHODS ---------- //
+        
+	        // This function initializes the rollover and needs to be done for each element
+	        this.init = function(item_id) 
+	        {
+	        	// An item_id should be specified in the initialization, but if not we extract it from the element's id parameter        	
+	        	if (typeof(item_id) == 'undefined')
+	        	{
+	        		item_id = get_item_id();
+	        	}
+	        	
+	        	$(document).ready(function() {
+		    		element.hover(
+		    			function() { get_data(this, item_id); }, 
+		    			function() { leave_rollover(this); 
+		    		});
+	        	});
+	        };
+	       
+	        // Anonymous function that can be called based on any element.
+	        this.close = function() 
+	        {        	
+	        	rollover_object = $('body').find("#" + rollover_container);
+	        	hide_rollover();
+	        };
+	    
+	    // -------------- END ----------------- //
+	        
+	        
+	    // ---------- PRIVATE METHODS ---------- //
+	        
+	        // Helper function that creates new html tags
+	        var tag = function(tag, id, css) 
+	        {
+	    		var element = document.createElement(tag);
+	    		if (id) { element.id = id; }
+	    		if (css) { element.style.cssText = css; }		
+	    		return jQuery(element);
+	        };
+	        
+	        // Rollovers are all setup as "item_roll_9787283728193", so can we split to an array and extract its ID
+	        var get_item_id = function() 
+	        {	        	
+	        	var item_id = element.attr("id");
+	        	item_id = item_id.split('_');
+	        	return item_id[2];
+	        };
+	        
+	        // Gets the rollover HTML via AJAX
+	        var get_data = function(obj, item_id) 
+	        {
+	        	obj = $(obj);
+	        	obj.data('hover', 1);
+	
+	        	// Check prevents reloading the visible rollover. Would happen when moving from image to rollver content then back to image
+	        	if (rollover_identifier==item_id)
+	        	{
+	        		return false;
+	        	}
+	
+	        	// Track the current obj the rollover is visible for
+	        	trigger_object = obj;
+	        	rollover_identifier = item_id;
+	
+	        	// Don't activate the rollover unless the user stays on it long enough. Hopefully this reduced some of the annoiance factor of it getting in the way.
+	        	setTimeout( function() {
+	        		if (obj.data('hover'))
+	        		{
+	        			// if we have the rollover in cache for this page load then we don't need to make the ajax call
+	        			if (rollover_cache[item_id])
+	        			{
+	        				show_rollover(item_id);
+	        			}
+	        			else
+	        			{
+	        				var url = config.ajax_url;
+	        				var params = {'item_id': item_id };
+	        				$.get(url, params, function(data) {					
+	        					
+	        					var $rollover_html = $(data); // Covert html returned from the ajax call into a jQuery object for manipulation
+	        					
+	        					/*
+	        					 * We do all the any and all changes to the rollover HTML here so that 
+	        					 * it gets stored/cached once and avoids redundent work. 
+	        					 */
+	        					
+	        					// There are 4 sections in the rollovers: header, top, middle, bottom.  If those get changed, it happens here.
+	        					if ($("#set_header_" + item_id).length)
+	        					{
+	        						// We find the header html section and add the new HTML stored on the calling page...it must styled on the calling page
+	        						$rollover_html.find("div #rollover_header_html").html($("#set_header_" + item_id).html());
+	        					}
+	        					if ($("#set_top_" + item_id).length)
+	        					{
+	        						// We find the top html section and add the new HTML stored on the calling page...it must styled on the calling page
+	        						$rollover_html.find("div #rollover_top_html").html($("#set_top_" + item_id).html());
+	        					}
+	        					if ($("#set_middle_" + item_id).length)
+	        					{
+	        						// We find the middle html section and add the new HTML stored on the calling page...it must styled on the calling page
+	        						$rollover_html.find("div #rollover_middle_html").html($("#set_middle_" + item_id).html());
+	        					}
+	        					if ($("#set_bottom_" + item_id).length)
+	        					{
+	        						// We find the bottom html section and add the new HTML stored on the calling page...it must styled on the calling page
+	        						$rollover_html.find("div #rollover_botton_html").html($("#set_bottom_" + item_id).html());
+	        					}
+	        		    		if (!config.links)
+	        		    		{
+	        		    			// Links = false, means we want no actionable items teasing the user...ie links, buttons, etc.
+	        		    			$rollover_html.find("a, img.rollover_close, div#rollover_top_html, div#rollover_bottom_html .s_i_r, div#rollover_market_prices").each(function() {
+	        		    				// We keep the inside html of an anchor, everything else matched gets removed from the rollover HTML completely
+	        		    				($(this).is("a")) ? $(this).replaceWith($(this).html()) : $(this).remove();
+	        		    			});
+	        		    		}	        					
+	        		    		
+	        		    		// Cache the response by saving the HTML (modified or not).  This keeps work only being done once per instance.  
+	        		    		// It may seem odd to store the whole jQuery object in cache, but it proves to be difficult to store just the HTML
+	        		    		// Here is the working solution though: $('<div>').append($rollover_html.clone()).remove().html();  
+	        		    		// As you can see, caching $rollover_html is much more simple and probably more effecient granted the increased temp space 
+	        		    		// used by having to cache full jQuery objects 
+	        					rollover_cache[item_id] = $rollover_html;         																			
+
+	        					// Expose the rollover
+	        					show_rollover(item_id); 
+	    					});
+	        			}
+	        		}
+	        	}, 500);
+	        };
+	        
+	        // Reveals the rollover either from cache or scratch
+	        var show_rollover = function(item_id) 
+	        {
+	        	var obj = trigger_object;
+	        	var offset = obj.offset();
+	        	var position_from_left = offset.left;
+	        	var position_from_top = offset.top;
+	        	var window_obj = $(window);
+	        	var pointer_padding = 43;
+	        	var pointer_vertical_position = 55;
+	        	var pointer_horizontal_percent;
+	        	var rollover_top = position_from_top - 35;
+	
+	        	// Create the container to hold the box if it doesn't exist
+	        	if (!rollover_object.length)
+	        	{
+	        		rollover_object = tag('div', rollover_container, 'position:absolute;z-index:5;width:' + config.width);
+	        		
+	        		if (config.classname)
+	        		{
+	        			rollover_object.addClass(config.classname);
+	        		}
+	
+	        		// store that the mouse is over this element so when can check when we leave the image
+	        		rollover_object.hover(
+	        			// store in that element that the mouse is over it
+	         			function(){ $(this).data('hover', 1); },  
+	         			// store in that element that the mouse is no longer over it
+	         			function(){ $(this).data('hover', 0);
+	                		// timeout gives us a split second to see if we moved from the rollover back to the image object. If so we don't want to fadeout.
+	                		//		If we had moved to a new image then it will take care of hiding the rollover very quickly
+	        				setTimeout(function() { 
+	        					if (!trigger_object.data('hover')) {
+	        						hide_rollover();
+	        					} 
+	        				}, 50);
+	            		}
+	            	);
+	
+	        		$('body').append(rollover_object);
+	        	}
+	
+	        	// Load the rollover content...fill the container basically
+	        	rollover_object.html(rollover_cache[parseInt(item_id,10)]);
+	
+	        	// When there is no persistance, we have no overlap because the overlap allows the user to moved their mouse onto the rollover seemlessly.
+	        	var rollover_overlap = (!config.persist) ? 0 : 5;
+	        	
+	        	if ((window_obj.width() / 2) < position_from_left)
+	        	{
+	        		// The padding needs to be added before the position from left is calculated because it otherwise changes the rollover position
+	        		rollover_object.css({'background':'url(/images/item_data_rollover/right.png) no-repeat', 'padding':'0 '+pointer_padding+'px 0 0'});
+	        		
+	        		// postition rollover to the left of the object
+	        		//		outerWidth to include the rollover padding
+	        		position_from_left = position_from_left - rollover_object.outerWidth() + rollover_overlap;
+	        		pointer_horizontal_percent = 100;	        		
+	        	}
+	        	else
+	        	{
+	        		// The padding needs to be added before the position from left is calculated because it otherwise changes the rollover position
+	        		rollover_object.css({'background':'url(/images/item_data_rollover/left.png) no-repeat', 'padding':'0 0 0 '+pointer_padding+'px'});
+	        		
+	        		// postition rollover to the right of the object
+	        		position_from_left = position_from_left + obj.width() - rollover_overlap;
+	        		pointer_horizontal_percent = 0;	        		
+	        	}
+	
+	        	// Set the rollover's absolute position from the left
+	        	rollover_object.css({'display':'none', 'left':position_from_left+'px'});        		
+	
+	        	// See if the rollover is too close to the bottom and slide it up 
+	        	// Overflow check needs to be after the content is loaded
+	        	var screen_overflow = (rollover_top + rollover_object.height()) - (window_obj.height() + window_obj.scrollTop());
+	        	if (screen_overflow > 0)
+	        	{
+	        		pointer_vertical_position = pointer_vertical_position + screen_overflow;
+	        		rollover_top = rollover_top - screen_overflow;
+	        	}
+	
+	        	// These could have been modified by the oferflow check
+	        	rollover_object.css({'top':rollover_top + 'px', 'background-position':pointer_horizontal_percent+'% '+pointer_vertical_position+'px'});
+	
+	        	// Trying to stop and clear animation to keep from rapid changes and backlog
+	        	rollover_object.stop(true,true).fadeIn(150);
+	        };
+	        
+	        var leave_rollover = function(obj) 
+	        {
+	        	$(obj).data('hover', 0);
+	
+	        	if (!config.persist)
+	        	{
+	        		hide_rollover();
+	        	}
+	        	else
+	        	{
+		        	// This timeout gives us a split second to see if the mouse moved from hovering on the object to the rollover.
+		        	// Without the timeout the hover for the rollover happens after the leave on this object
+		        	setTimeout( function() {
+		        		/* rollover_object.length && trigger_object.length makes sure objects exist. In moving over an image it is possible for leave to be triggered 
+		        		 * before being shown. !rollover_object.data('hover') check to not fade out if they move from object to the rollover content checking. 
+		        		 * !trigger_object.data('hover') for when you move from one object directly to another. Fadeout can get called after the next fadein */		        				
+		        		if (rollover_object.length && trigger_object.length && !rollover_object.data('hover') && !trigger_object.data('hover'))
+		        		{
+		        			hide_rollover();
+		        		}
+		        	}, 50);
+	        	}
+	        };
+	        
+	    	// Clearing current_item after fade seemed to cause issue with it already being set to a new item
+	    	// Trying this to fix issue of leaving obj to the top then coming back on.
+	        var hide_rollover = function() 
+	        {
+	        	rollover_identifier = 0;
+	        	//rollover_object.fadeOut(400);
+	        	rollover_object.hide();
+	        };
+       
+	    // -------------- END ----------------- //	        
+
+	};
+
+	jQuery.fn.rollover = function(options) {
+		  return $.fn.encapsulatedPlugin('rollover', ItemRollover, this, options);
+	};
+
+})(jQuery);
+
+/**
+ * Plugin generator plugin. Doesn't allow for chaining, but preserves public methods and namespaces, and supports multiple elements.
+ * http://jamietalbot.com/2010/08/22/object-oriented-jquery-plugins/
+ * @author Jamie Talbot
+ */
+(function ($) {
+
+	$.fn.encapsulatedPlugin = function (plugin, Definition, objects, options) {
+
+		// Creates a function that calls the function of the same name on each member of the supplied set.
+		function makeIteratorFunction(f, set) {
+			return function () {
+				var result = [];
+				for ( var i = 0; i < set.length; i++) {
+					result.push(set[i][f].apply(set[i][f], arguments));
+				}
+				return result;
+			};
+		}
+
+		var result = [];
+		objects.each(function () {
+			if (!$.data(this, plugin)) {
+				// Initialise
+				var instance = new Definition(this, options);
+				if (typeof (instance.setup) !== 'undefined' && $.isFunction(instance.setup)) {
+					// If there is a setup function supplied, call it.
+					instance.setup();
+				}
+
+				// Store the new functions in a validation data object.
+				$.data(this, plugin, instance);
+			}
+			result.push($.data(this, plugin));
+		});
+
+		if (result.length > 1) {
+
+			// We now have a set of plugin instances.
+			result = $(result);
+
+			// Take the public functions from the Definition and make them available across the set.
+			var template = result[0];
+			if (template) {
+				for ( var i in template) {
+					if (typeof (template[i]) !== 'undefined' && $.isFunction(template[i])) {
+						result[i] = makeIteratorFunction(i, result);
+					}
+				}
+			}
+		} else {
+			result = result[0];
+		}
+
+		// Finally mix-in a convenient reference back to the objects, to allow for chaining.
+		result.$ = objects;
+
+		return result;
+	};
+})(jQuery);
